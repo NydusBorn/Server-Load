@@ -251,8 +251,56 @@ int main(int argc, char **argv) {
                     struct tm tm = *localtime(&t);
                     fprintf(stdout, "[from %s at %d-%02d-%02d %02d:%02d:%02d] %s\n", clientip, tm.tm_year + 1900,
                             tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, buf);
-                    if (strncmp(buf, "quit", 4) == 0) {
-                        f = 0;
+                    if (strncmp(buf, "register", 8) == 0) {
+                        fprintf(stdout, "Registering user\n");
+                        {
+                            int success = 0;
+                            char UUID_USER[129];
+                            memset(UUID_USER, 0, sizeof(UUID_USER));
+                            while (!success) {
+                                for (int i = 0; i < 128; ++i) {
+                                    UUID_USER[i] = (char) (rand() % 256);
+                                }
+                                PostGres_conn = PQconnectdb(Conn_info);
+                                if (PQstatus(PostGres_conn) == CONNECTION_OK) {
+                                    char query[1024];
+                                    memset(query, 0, sizeof(query));
+                                    sprintf(query, "Select * from Users where Identificator = '%s'", UUID_USER);
+                                    PostGres_res = PQexec(PostGres_conn, query);
+                                    if (PQresultStatus(PostGres_res) == PGRES_TUPLES_OK) {
+                                        if (PQntuples(PostGres_res) == 0) {
+                                            PQclear(PostGres_res);
+                                            memset(query, 0, sizeof(query));
+                                            sprintf(query, "INSERT INTO Users VALUES ('%s')", UUID_USER);
+                                            PostGres_res = PQexec(PostGres_conn, query);
+                                            if (PQresultStatus(PostGres_res) == PGRES_COMMAND_OK) {
+                                                fprintf(stdout, "User %s registered\n", UUID_USER);
+                                                success = 1;
+                                            }
+                                            PQclear(PostGres_res);
+                                            PQfinish(PostGres_conn);
+                                        }
+                                        else{
+                                            PQclear(PostGres_res);
+                                            PQfinish(PostGres_conn);
+                                        }
+                                    }
+                                    else{
+                                        PQclear(PostGres_res);
+                                        PQfinish(PostGres_conn);
+                                        break;
+                                    }
+                                }
+                                else{
+                                    PQfinish(PostGres_conn);
+                                    f = 0;
+                                    break;
+                                }
+                            }
+                            if (!success) {
+                                fprintf(stdout, "Failed to register user\n");
+                            }
+                        }
                     }
                 } else {
                     f = 0;

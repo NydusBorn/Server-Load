@@ -24,6 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
@@ -36,12 +38,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nydus.example.server_load_android.ui.theme.ServerloadandroidTheme
 import com.nydus.example.server_load_android.Screens.BuildingScreen
+import com.nydus.example.server_load_android.Screens.InstanceScreen
 import com.nydus.example.server_load_android.Screens.PriorityScreen
 import com.nydus.example.server_load_android.Screens.ResearchScreen
 import com.nydus.example.server_load_android.Screens.SettingScreen
 
 class MainActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -67,7 +69,10 @@ fun NavHostContainer(
     navController: NavHostController,
     paddingValues: PaddingValues
 ) {
-    NavHost(navController = navController, startDestination = "Priority", modifier = Modifier.padding(paddingValues)) {
+    NavHost(navController = navController, startDestination = "Instance", modifier = Modifier.padding(paddingValues)) {
+        composable("Instance"){
+            InstanceScreen()
+        }
         composable("Priority") {
             PriorityScreen()
         }
@@ -85,7 +90,8 @@ fun NavHostContainer(
 
 @Composable
 fun BottomNavBar(navController: NavController) {
-    BottomNavigation (backgroundColor = MaterialTheme.colorScheme.primary){
+    Connector.navHost = navController
+    BottomNavigation (backgroundColor = MaterialTheme.colorScheme.primary, modifier = Modifier.alpha(Connector.BottomNavBarVisibility.floatValue)){
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         Constants.BottomNavItems.forEach{
@@ -94,7 +100,8 @@ fun BottomNavBar(navController: NavController) {
                 onClick = { navController.navigate(it.route) }, 
                 icon = { it.icon },
                 label = { Text(text = it.label, fontSize = TextUnit(3f, TextUnitType.Em)) },
-                alwaysShowLabel = false
+                alwaysShowLabel = false,
+                enabled = Connector.BottomNavBarVisibility.floatValue != 0f
             )
         }
     }
