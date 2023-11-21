@@ -274,8 +274,18 @@ int main(int argc, char **argv) {
                                             sprintf(query, "INSERT INTO Users VALUES ('%s')", UUID_USER);
                                             PostGres_res = PQexec(PostGres_conn, query);
                                             if (PQresultStatus(PostGres_res) == PGRES_COMMAND_OK) {
-                                                fprintf(stdout, "User %s registered\n", UUID_USER);
-                                                success = 1;
+                                                char s_buf[1024];
+                                                memset(s_buf, 0, sizeof(s_buf));
+                                                sprintf(s_buf, "registered %s", UUID_USER);
+                                                if (send(fd, s_buf, strlen(s_buf), 0)){
+                                                    fprintf(stdout, "User %s registered\n", UUID_USER);
+                                                    success = 1;
+                                                }
+                                                else{
+                                                    memset(query, 0, sizeof(query));
+                                                    sprintf(query, "DELETE FROM Users WHERE Identificator = '%s'", UUID_USER);
+                                                    PostGres_res = PQexec(PostGres_conn, query);
+                                                }
                                             }
                                             PQclear(PostGres_res);
                                             PQfinish(PostGres_conn);
