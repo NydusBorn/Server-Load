@@ -35,7 +35,7 @@ import com.nydus.example.server_load_android.Screens.SettingScreen
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Preference(this) // TODO: get preference store
+        Connector.AppPreferences = this.getSharedPreferences("server_load_android_preferences", MODE_PRIVATE)
         setContent {
             ServerloadandroidTheme {
                 // A surface container using the 'background' color from the theme
