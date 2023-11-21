@@ -1,16 +1,13 @@
 ﻿package com.nydus.example.server_load_android
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import android.content.SharedPreferences
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.navigation.NavController
-import androidx.navigation.NavHost
+import java.net.Socket
 
 object Connector{
     var BottomNavBarVisibility = mutableFloatStateOf(0f)
-    
-    var navHost: NavController? = null
+    var NavController: NavController? = null
+    var Connection: Socket? = null
+    var AppPreferences: SharedPreferences? = null
 }
