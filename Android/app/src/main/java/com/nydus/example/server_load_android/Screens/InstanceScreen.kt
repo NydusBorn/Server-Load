@@ -29,26 +29,27 @@ import kotlinx.coroutines.runBlocking
 import java.lang.Exception
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.nio.ByteBuffer
 import kotlin.concurrent.thread
 
 
 @OptIn(DelicateCoroutinesApi::class)
 @Composable
 fun InstanceScreen (){
-    if (Connector.AppPreferences?.getString("last_instance", "none") != "none") {
-        val lastInstance = Connector.AppPreferences?.getString("last_instance", "none")?.split(":")
-        try {
-            val socket = Socket()
-            socket.soTimeout = 5000
-            socket.connect(InetSocketAddress(lastInstance?.get(0), lastInstance?.get(1)?.toInt()!!), 5000)
-            Connector.Connection = socket
-            return
-        }
-        catch (e:Exception){
-            AlertDialog.Builder(Connector.NavController!!.context).setTitle("Error").setMessage("${e.message.toString()}\n${e.javaClass}\n${e.stackTrace[0]}").show()
-            Connector.AppPreferences?.edit()?.putString("last_instance", "none")?.apply()
-        }
-    }
+//    if (Connector.AppPreferences?.getString("last_instance", "none") != "none") {
+//        val lastInstance = Connector.AppPreferences?.getString("last_instance", "none")?.split(":")
+//        try {
+//            val socket = Socket()
+//            socket.soTimeout = 5000
+//            socket.connect(InetSocketAddress(lastInstance?.get(0), lastInstance?.get(1)?.toInt()!!), 5000)
+//            Connector.Connection = socket
+//            return
+//        }
+//        catch (e:Exception){
+//            AlertDialog.Builder(Connector.NavController!!.context).setTitle("Error").setMessage("${e.message.toString()}\n${e.javaClass}\n${e.stackTrace[0]}").show()
+//            Connector.AppPreferences?.edit()?.putString("last_instance", "none")?.apply()
+//        }
+//    }
     Connector.BottomNavBarVisibility.floatValue = 0f
     var instance_ip by remember {
         mutableStateOf("")
@@ -68,8 +69,42 @@ fun InstanceScreen (){
                     socket.soTimeout = 5000
                     socket.connect(InetSocketAddress(lastInstance[0], lastInstance[1].toInt()), 5000)
                     Connector.Connection = socket
-                    Connector.NavController?.navigate("Building")
-                    Connector.BottomNavBarVisibility.floatValue = 1f
+                    Connector.Connection?.getInputStream()?.read(ByteArray(1024))
+                    Connector.AppPreferences?.edit()?.putString("last_instance", "${instance_ip}:${instance_port}")?.apply()
+                    if (Connector.AppPreferences?.getString("${lastInstance[0]}:${lastInstance[1]}", "none") == "none"){
+                        Connector.Connection?.getOutputStream()?.write("register".toByteArray())
+                        val buff = ByteArray(1024)
+                        val len = Connector.Connection?.getInputStream()?.read(buff)
+                        val res = String(buff, 0, len!!).split(" ")
+                        if (res.count() == 2 && res[0] == "registered"){
+                            Connector.AppPreferences?.edit()?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])?.apply()
+                        }
+                        else{
+                            throw Exception("Can't register $res")
+                        }
+                    }
+                    else{
+                        Connector.Connection?.getOutputStream()?.write("login ${Connector.AppPreferences?.getString("${lastInstance[0]}:${lastInstance[1]}", "none")}".toByteArray())
+                        val buff = ByteArray(1024)
+                        val len = Connector.Connection?.getInputStream()?.read(buff)
+                        val res = String(buff, 0, len!!)
+                        if (res != "logged"){
+                            Connector.Connection?.getOutputStream()?.write("register".toByteArray())
+                            val buff = ByteArray(1024)
+                            val len = Connector.Connection?.getInputStream()?.read(buff)
+                            val res = String(buff, 0, len!!).split(" ")
+                            if (res.count() == 2 && res[0] == "registered"){
+                                Connector.AppPreferences?.edit()?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])?.apply()
+                            }
+                            else{
+                                throw Exception("Can't register $res")
+                            }
+                        }
+                    }
+                    Connector.AppMainThread.post{
+                        Connector.NavController?.navigate("Building")
+                        Connector.BottomNavBarVisibility.floatValue = 1f
+                    }
                 }
                 catch (e:Exception){
                     Connector.AppMainThread.post{
