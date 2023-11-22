@@ -244,6 +244,8 @@ int main(int argc, char **argv) {
                 fprintf(stdout, "[%s entered at %d-%02d-%02d %02d:%02d:%02d]\n", clientip, tm.tm_year + 1900,
                         tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
             }
+            char UUID_USER[129];
+            int USER_LOGGED = 0;
             while (f) {
                 memset(buf, 0, sizeof(buf));
                 if (recv(fd, buf, 254, 0) > 0) {
@@ -251,27 +253,26 @@ int main(int argc, char **argv) {
                     struct tm tm = *localtime(&t);
                     fprintf(stdout, "[from %s at %d-%02d-%02d %02d:%02d:%02d] %s\n", clientip, tm.tm_year + 1900,
                             tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, buf);
-                    if (strncmp(buf, "register", 8) == 0) {
+                    if (strncmp(buf, "register", 8) == 0 && !USER_LOGGED) {
                         fprintf(stdout, "Registering user\n");
                         {
                             int success = 0;
-                            char UUID_USER[129];
                             memset(UUID_USER, 0, sizeof(UUID_USER));
                             while (!success) {
                                 for (int i = 0; i < 128; ++i) {
-                                    UUID_USER[i] = (char) (rand() % 256);
+                                    UUID_USER[i] = (char) ('A' + (rand() % 20));
                                 }
                                 PostGres_conn = PQconnectdb(Conn_info);
                                 if (PQstatus(PostGres_conn) == CONNECTION_OK) {
                                     char query[1024];
                                     memset(query, 0, sizeof(query));
-                                    sprintf(query, "Select * from Users where Identificator = '%s'", UUID_USER);
+                                    sprintf(query, "Select * from \"Users\" where \"Identificator\" = '%s'", UUID_USER);
                                     PostGres_res = PQexec(PostGres_conn, query);
                                     if (PQresultStatus(PostGres_res) == PGRES_TUPLES_OK) {
                                         if (PQntuples(PostGres_res) == 0) {
                                             PQclear(PostGres_res);
                                             memset(query, 0, sizeof(query));
-                                            sprintf(query, "INSERT INTO Users VALUES ('%s')", UUID_USER);
+                                            sprintf(query, "INSERT INTO \"Users\" VALUES (DEFAULT, '%s')", UUID_USER);
                                             PostGres_res = PQexec(PostGres_conn, query);
                                             if (PQresultStatus(PostGres_res) == PGRES_COMMAND_OK) {
                                                 char s_buf[1024];
@@ -279,13 +280,19 @@ int main(int argc, char **argv) {
                                                 sprintf(s_buf, "registered %s", UUID_USER);
                                                 if (send(fd, s_buf, strlen(s_buf), 0)){
                                                     fprintf(stdout, "User %s registered\n", UUID_USER);
+                                                    USER_LOGGED = 1;
                                                     success = 1;
                                                 }
                                                 else{
                                                     memset(query, 0, sizeof(query));
-                                                    sprintf(query, "DELETE FROM Users WHERE Identificator = '%s'", UUID_USER);
+                                                    sprintf(query, "DELETE FROM \"Users\" WHERE \"Identificator\" = '%s'", UUID_USER);
                                                     PostGres_res = PQexec(PostGres_conn, query);
+                                                    fprintf(stderr, "couldn't send message: %s\n", strerror(errno));
+                                                    break;
                                                 }
+                                            }else{
+                                                fprintf(stderr, "Couldn't insert user: %s\n", PQresultErrorMessage(PostGres_res));
+                                                break;
                                             }
                                             PQclear(PostGres_res);
                                             PQfinish(PostGres_conn);
@@ -298,19 +305,67 @@ int main(int argc, char **argv) {
                                     else{
                                         PQclear(PostGres_res);
                                         PQfinish(PostGres_conn);
+                                        fprintf(stderr, "Failed to select users: %s\n", PQresultErrorMessage(PostGres_res));
                                         break;
                                     }
                                 }
                                 else{
                                     PQfinish(PostGres_conn);
+                                    fprintf(stderr, "Failed to connect to database: %s\n", PQerrorMessage(PostGres_conn));
                                     f = 0;
                                     break;
                                 }
                             }
                             if (!success) {
-                                fprintf(stdout, "Failed to register user\n");
+                                fprintf(stderr, "Failed to register user\n");
                             }
                         }
+                    }
+                    else if (strncmp(buf, "login", 5) == 0 && !USER_LOGGED) {
+                        char *user_attempt;
+                        user_attempt = strdup(buf);
+                        strsep(&user_attempt, " ");
+                        user_attempt = strsep(&user_attempt, " ");
+                        //TODO: Check for memory leaks with valgrind or something
+                        if (strlen(user_attempt) != 128){
+                            fprintf(stderr, "Incorrect login length\n");
+                            continue;
+                        } 
+                        fprintf(stdout, "Logging in user\n");
+                        {
+                            PostGres_conn = PQconnectdb(Conn_info);
+                            if (PQstatus(PostGres_conn) == CONNECTION_OK) {
+                                char query[1024];
+                                memset(query, 0, sizeof(query));
+                                sprintf(query, "Select * from \"Users\" where \"Identificator\" = '%s'", user_attempt);
+                                PostGres_res = PQexec(PostGres_conn, query);
+                                if (PQresultStatus(PostGres_res) == PGRES_TUPLES_OK) {
+                                    if (PQntuples(PostGres_res) == 1) {
+                                        PQclear(PostGres_res);
+                                        memcpy(UUID_USER, user_attempt, strlen(user_attempt));
+                                        UUID_USER[128] = '\0';
+                                        if (send(fd, "logged", 6, 0)){
+                                            fprintf(stdout, "User %s logged in\n", UUID_USER);
+                                            USER_LOGGED = 1;
+                                        }
+                                        else{
+                                            fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
+                                        }
+                                    }
+                                    else{
+                                        send(fd, "failed login", 12, 0);
+                                        fprintf(stderr, "User %s not found\n", user_attempt);
+                                    }
+                                }
+                                else{
+                                    fprintf(stderr, "Failed to select users: %s\n", PQresultErrorMessage(PostGres_res));
+                                }
+                                PQclear(PostGres_res);
+                            }
+                            PQfinish(PostGres_conn);
+                        }
+                        
+                        
                     }
                 } else {
                     f = 0;
