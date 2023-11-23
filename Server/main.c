@@ -341,7 +341,6 @@ int main(int argc, char **argv) {
                                 PostGres_res = PQexec(PostGres_conn, query);
                                 if (PQresultStatus(PostGres_res) == PGRES_TUPLES_OK) {
                                     if (PQntuples(PostGres_res) == 1) {
-                                        PQclear(PostGres_res);
                                         memcpy(UUID_USER, user_attempt, strlen(user_attempt));
                                         UUID_USER[128] = '\0';
                                         if (send(fd, "logged", 6, 0)){
