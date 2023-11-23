@@ -4,7 +4,7 @@ import android.app.AlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.TextField
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,21 +35,83 @@ import kotlin.concurrent.thread
 
 @OptIn(DelicateCoroutinesApi::class)
 @Composable
-fun InstanceScreen (){
-//    if (Connector.AppPreferences?.getString("last_instance", "none") != "none") {
-//        val lastInstance = Connector.AppPreferences?.getString("last_instance", "none")?.split(":")
-//        try {
-//            val socket = Socket()
-//            socket.soTimeout = 5000
-//            socket.connect(InetSocketAddress(lastInstance?.get(0), lastInstance?.get(1)?.toInt()!!), 5000)
-//            Connector.Connection = socket
-//            return
-//        }
-//        catch (e:Exception){
-//            AlertDialog.Builder(Connector.NavController!!.context).setTitle("Error").setMessage("${e.message.toString()}\n${e.javaClass}\n${e.stackTrace[0]}").show()
-//            Connector.AppPreferences?.edit()?.putString("last_instance", "none")?.apply()
-//        }
-//    }
+fun InstanceScreen() {
+    if (Connector.AppPreferences?.getString("last_instance", "none") != "none") {
+        val lastInstance =
+            Connector.AppPreferences?.getString("last_instance", "none")?.split(":")!!
+        GlobalScope.run {
+            async {
+                try {
+                    val socket = Socket()
+                    socket.soTimeout = 5000
+                    socket.connect(
+                        InetSocketAddress(lastInstance[0], lastInstance[1].toInt()),
+                        5000
+                    )
+                    Connector.Connection = socket
+                    Connector.Connection?.getInputStream()?.read(ByteArray(1024))
+                    Connector.AppPreferences?.edit()
+                        ?.putString("last_instance", "${lastInstance[0]}:${lastInstance[1]}")
+                        ?.apply()
+                    if (Connector.AppPreferences?.getString(
+                            "${lastInstance[0]}:${lastInstance[1]}",
+                            "none"
+                        ) == "none"
+                    ) {
+                        Connector.Connection?.getOutputStream()?.write("register".toByteArray())
+                        val buff = ByteArray(1024)
+                        val len = Connector.Connection?.getInputStream()?.read(buff)
+                        val res = String(buff, 0, len!!).split(" ")
+                        if (res.count() == 2 && res[0] == "registered") {
+                            Connector.AppPreferences?.edit()
+                                ?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])
+                                ?.apply()
+                        } else {
+                            throw Exception("Can't register $res")
+                        }
+                    } else {
+                        Connector.Connection?.getOutputStream()?.write(
+                            "login ${
+                                Connector.AppPreferences?.getString(
+                                    "${lastInstance[0]}:${lastInstance[1]}",
+                                    "none"
+                                )
+                            }".toByteArray()
+                        )
+                        val buff = ByteArray(1024)
+                        val len = Connector.Connection?.getInputStream()?.read(buff)
+                        val res = String(buff, 0, len!!)
+                        if (res != "logged") {
+                            Connector.Connection?.getOutputStream()?.write("register".toByteArray())
+                            val buff = ByteArray(1024)
+                            val len = Connector.Connection?.getInputStream()?.read(buff)
+                            val res = String(buff, 0, len!!).split(" ")
+                            if (res.count() == 2 && res[0] == "registered") {
+                                Connector.AppPreferences?.edit()
+                                    ?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])
+                                    ?.apply()
+                            } else {
+                                throw Exception("Can't register $res")
+                            }
+                        }
+                    }
+                    Connector.AppMainThread.post {
+                        Connector.NavController?.navigate("Priority")
+                        Connector.BottomNavBarVisibility.floatValue = 1f
+                    }
+                    return@async
+                } catch (e: Exception) {
+                    Connector.AppMainThread.post {
+                        AlertDialog.Builder(Connector.NavController!!.context).setTitle("Error")
+                            .setMessage("${e.message.toString()}\n${e.javaClass}\n${e.stackTrace[0]}")
+                            .show()
+                        Connector.AppPreferences?.edit()?.putString("last_instance", "none")
+                            ?.apply()
+                    }
+                }
+            }
+        }
+    }
     Connector.BottomNavBarVisibility.floatValue = 0f
     var instance_ip by remember {
         mutableStateOf("")
@@ -57,64 +119,93 @@ fun InstanceScreen (){
     var instance_port by remember {
         mutableStateOf("")
     }
-    
-    Column(verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-        TextField(value = instance_ip, onValueChange = {instance_ip = it}, placeholder = { Text(text = "Instance IP address")})
-        TextField(value = instance_port, onValueChange = {instance_port = it}, placeholder = { Text(text = "Instance listen port")})
+
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        TextField(
+            value = instance_ip,
+            onValueChange = { instance_ip = it },
+            placeholder = { Text(text = "Instance IP address") })
+        TextField(
+            value = instance_port,
+            onValueChange = { instance_port = it },
+            placeholder = { Text(text = "Instance listen port") })
         Button(onClick = {
             val lastInstance = "${instance_ip}:${instance_port}".split(":")
             GlobalScope.async {
                 try {
                     val socket = Socket()
                     socket.soTimeout = 5000
-                    socket.connect(InetSocketAddress(lastInstance[0], lastInstance[1].toInt()), 5000)
+                    socket.connect(
+                        InetSocketAddress(lastInstance[0], lastInstance[1].toInt()),
+                        5000
+                    )
                     Connector.Connection = socket
                     Connector.Connection?.getInputStream()?.read(ByteArray(1024))
-                    Connector.AppPreferences?.edit()?.putString("last_instance", "${instance_ip}:${instance_port}")?.apply()
-                    if (Connector.AppPreferences?.getString("${lastInstance[0]}:${lastInstance[1]}", "none") == "none"){
+                    Connector.AppPreferences?.edit()
+                        ?.putString("last_instance", "${instance_ip}:${instance_port}")?.apply()
+                    if (Connector.AppPreferences?.getString(
+                            "${lastInstance[0]}:${lastInstance[1]}",
+                            "none"
+                        ) == "none"
+                    ) {
                         Connector.Connection?.getOutputStream()?.write("register".toByteArray())
                         val buff = ByteArray(1024)
                         val len = Connector.Connection?.getInputStream()?.read(buff)
                         val res = String(buff, 0, len!!).split(" ")
-                        if (res.count() == 2 && res[0] == "registered"){
-                            Connector.AppPreferences?.edit()?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])?.apply()
-                        }
-                        else{
+                        if (res.count() == 2 && res[0] == "registered") {
+                            Connector.AppPreferences?.edit()
+                                ?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])
+                                ?.apply()
+                        } else {
                             throw Exception("Can't register $res")
                         }
-                    }
-                    else{
-                        Connector.Connection?.getOutputStream()?.write("login ${Connector.AppPreferences?.getString("${lastInstance[0]}:${lastInstance[1]}", "none")}".toByteArray())
+                    } else {
+                        Connector.Connection?.getOutputStream()?.write(
+                            "login ${
+                                Connector.AppPreferences?.getString(
+                                    "${lastInstance[0]}:${lastInstance[1]}",
+                                    "none"
+                                )
+                            }".toByteArray()
+                        )
                         val buff = ByteArray(1024)
                         val len = Connector.Connection?.getInputStream()?.read(buff)
                         val res = String(buff, 0, len!!)
-                        if (res != "logged"){
-                            Connector.Connection?.getOutputStream()?.write("register".toByteArray())
+                        if (res != "logged") {
+                            Connector.Connection?.getOutputStream()
+                                ?.write("register".toByteArray())
                             val buff = ByteArray(1024)
                             val len = Connector.Connection?.getInputStream()?.read(buff)
                             val res = String(buff, 0, len!!).split(" ")
-                            if (res.count() == 2 && res[0] == "registered"){
-                                Connector.AppPreferences?.edit()?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])?.apply()
-                            }
-                            else{
+                            if (res.count() == 2 && res[0] == "registered") {
+                                Connector.AppPreferences?.edit()
+                                    ?.putString("${lastInstance[0]}:${lastInstance[1]}", res[1])
+                                    ?.apply()
+                            } else {
                                 throw Exception("Can't register $res")
                             }
                         }
                     }
-                    Connector.AppMainThread.post{
-                        Connector.NavController?.navigate("Building")
+                    Connector.AppMainThread.post {
+                        Connector.NavController?.navigate("Priority")
                         Connector.BottomNavBarVisibility.floatValue = 1f
                     }
-                }
-                catch (e:Exception){
-                    Connector.AppMainThread.post{
-                        AlertDialog.Builder(Connector.NavController!!.context).setTitle("Error").setMessage("${e.message.toString()}\n${e.javaClass}\n${e.stackTrace[0]}").show()
-                        Connector.AppPreferences?.edit()?.putString("last_instance", "none")?.apply()
+                } catch (e: Exception) {
+                    Connector.AppMainThread.post {
+                        AlertDialog.Builder(Connector.NavController!!.context).setTitle("Error")
+                            .setMessage("${e.message.toString()}\n${e.javaClass}\n${e.stackTrace[0]}")
+                            .show()
+                        Connector.AppPreferences?.edit()?.putString("last_instance", "none")
+                            ?.apply()
                     }
                 }
             }
-            
-            
+
+
         }) {
             Text(text = "Enter")
         }

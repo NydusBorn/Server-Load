@@ -3,11 +3,13 @@
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.BottomNavigation
 import androidx.compose.material.BottomNavigationItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -16,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.navigation.NavController
@@ -88,8 +91,8 @@ fun BottomNavBar(navController: NavController) {
             BottomNavigationItem(
                 selected = currentRoute == it.route, 
                 onClick = { navController.navigate(it.route) }, 
-                icon = { it.icon },
-                label = { Text(text = it.label, fontSize = TextUnit(3f, TextUnitType.Em)) },
+                icon = { Icon(imageVector = it.icon, it.label, tint = MaterialTheme.colorScheme.onPrimary) },
+                label = { Text(text = it.label, fontSize = TextUnit(3f, TextUnitType.Em), color = MaterialTheme.colorScheme.onPrimary) },
                 alwaysShowLabel = false,
                 enabled = Connector.BottomNavBarVisibility.floatValue != 0f
             )
