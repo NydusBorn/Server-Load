@@ -25,12 +25,176 @@ static const char ERROR_NO_DATABASE_PASSWORD_GIVEN[] = "You have given no databa
 static const char ERRPR_NO_DATABASE_NAME_GIVEN[] = "You have given no database_name\n";
 static const char USAGE[] = "Usage: %s port database_ip database_port database_user database_password database_name\nport - which port to listen on\ndatabase_ip - IP of the server the database is located at\ndatabase_port - port used by the database connections on the server\ndatabase_user - username used to connect to the database\ndatabase_password - password used to connect to the database\ndatabase_name - name of the database\n";
 static int active = 1;
+static char Conn_info[4096];
+char UUID_USER[129];
 
 void q_signal_handler(int s) {
     (void) s;
     active = 0;
     fprintf(stdout, "Closing Server\n");
 }
+
+struct game_state{
+    int focused_research;
+    int focused_building;
+    double build_priority;
+    double boost_priority;
+    double research_priority;
+    long time;
+    //Buildings
+    double building_bits;
+    double building_bytes;
+    double building_kilo_packers;
+    double building_mega_packers;
+    double building_giga_packers;
+    double building_tera_packers;
+    double building_peta_packers;
+    double building_exa_packers;
+    double building_processes;
+    double building_overflows;
+    //Research
+    double research_bits_add;
+    double research_bits_mul;
+    double research_bytes_add;
+    double research_bytes_mul;
+    double research_kilo_add;
+    double research_kilo_mul;
+    double research_mega_add;
+    double research_mega_mul;
+    double research_giga_add;
+    double research_giga_mul;
+    double research_tera_add;
+    double research_tera_mul;
+    double research_peta_add;
+    double research_peta_mul;
+    double research_exa_add;
+    double research_exa_mul;
+    double research_process_mul;
+    double research_endgame;
+}; 
+
+struct game_state get_state_from_db() {
+    struct game_state state;
+    PGconn *PostGres_conn;
+    PGresult *res;
+    PostGres_conn = PQconnectdb(Conn_info);
+    int success = 0;
+    if (PQstatus(PostGres_conn) == CONNECTION_OK) {
+        char query[1024];
+        memset(query, 0, sizeof(query));
+        sprintf(query, "select round(extract(epoch from \"Last seen\") * 1000) from \"Users\" where \"Identificator\" = '%s'", UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            goto escape;
+        }
+        char *t_value;
+        t_value = PQgetvalue(res, 0, 0);
+        state.time = atol(t_value);
+        PQclear(res);
+        memset(query, 0, sizeof(query));
+        sprintf(query, "select \"Build_Priority\", \"Boost_Priority\", \"Research_Priority\", \"Focused_Research\", \"Focused_Building\" from \"User_Priority\" join \"Users\" on \"Users\".\"Pk\" = \"User_Priority\".\"Fk_User\" where \"Identificator\" = '%s'", UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            goto escape;
+        }
+        t_value = PQgetvalue(res, 0, 0);
+        state.build_priority = atof(t_value);
+        t_value = PQgetvalue(res, 0, 1);
+        state.boost_priority = atof(t_value);
+        t_value = PQgetvalue(res, 0, 2);
+        state.research_priority = atof(t_value);
+        t_value = PQgetvalue(res, 0, 3);
+        state.focused_research = atoi(t_value);
+        t_value = PQgetvalue(res, 0, 4);
+        state.focused_building = atoi(t_value);
+        PQclear(res);
+        memset(query, 0, sizeof(query));
+        sprintf(query, "select \"Bits\", \"Bytes\", \"Kilo_Packers\", \"Mega_Packers\", \"Giga_Packers\", \"Tera_Packers\", \"Peta_Packers\", \"Exa_Packers\", \"Processes\", \"Overflows\" from \"User_Buildings\" join \"Users\" on \"Users\".\"Pk\" = \"User_Buildings\".\"Fk_User\" where \"Identificator\" = '%s'", UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            goto escape;
+        }
+        t_value = PQgetvalue(res, 0, 0);
+        state.building_bits = atof(t_value);
+        t_value = PQgetvalue(res, 0, 1);
+        state.building_bytes = atof(t_value);
+        t_value = PQgetvalue(res, 0, 2);
+        state.building_kilo_packers = atof(t_value);
+        t_value = PQgetvalue(res, 0, 3);
+        state.building_mega_packers = atof(t_value);
+        t_value = PQgetvalue(res, 0, 4);
+        state.building_giga_packers = atof(t_value);
+        t_value = PQgetvalue(res, 0, 5);
+        state.building_tera_packers = atof(t_value);
+        t_value = PQgetvalue(res, 0, 6);
+        state.building_peta_packers = atof(t_value);
+        t_value = PQgetvalue(res, 0, 7);
+        state.building_exa_packers = atof(t_value);
+        t_value = PQgetvalue(res, 0, 8);
+        state.building_processes = atof(t_value);
+        t_value = PQgetvalue(res, 0, 9);
+        state.building_overflows = atof(t_value);
+        PQclear(res);
+        memset(query, 0, sizeof(query));
+        sprintf(query, "select \"Bits_Add\", \"Bits_Mul\", \"Bytes_Add\", \"Bytes_Mul\", \"Kilo_Add\", \"Kilo_Mul\", \"Mega_Add\", \"Mega_Mul\", \"Giga_Add\", \"Giga_Mul\", \"Tera_Add\", \"Tera_Mul\", \"Peta_Add\", \"Peta_Mul\", \"Exa_Add\", \"Exa_Mul\", \"Process_Multiplier\", \"Game_End\" from \"User_Research\" join \"Users\" on \"Users\".\"Pk\" = \"User_Research\".\"Fk_User\" where \"Identificator\" = '%s'", UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+            goto escape;
+        }
+        t_value = PQgetvalue(res, 0, 0);
+        state.research_bits_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 1);
+        state.research_bits_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 2);
+        state.research_bytes_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 3);
+        state.research_bytes_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 4);
+        state.research_kilo_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 5);
+        state.research_kilo_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 6);
+        state.research_mega_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 7);
+        state.research_mega_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 8);
+        state.research_giga_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 9);
+        state.research_giga_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 10);
+        state.research_tera_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 11);
+        state.research_tera_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 12);
+        state.research_peta_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 13);
+        state.research_peta_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 14);
+        state.research_exa_add = atof(t_value);
+        t_value = PQgetvalue(res, 0, 15);
+        state.research_exa_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 16);
+        state.research_process_mul = atof(t_value);
+        t_value = PQgetvalue(res, 0, 17);
+        state.research_endgame = atof(t_value);
+        PQclear(res);
+        PQfinish(PostGres_conn);
+        success = 1;
+    }
+    escape:
+    if (!success) {
+        fprintf(stderr, "Error code on PQconnectdb (if any): %s\n", PQerrorMessage(PostGres_conn));
+        fprintf(stderr, "Error code on PQresultStatus (if any): %d\n", PQresultStatus(res));
+        PQfinish(PostGres_conn);
+        struct game_state fail_state;
+        fail_state.time = -1;
+        return fail_state;
+    }
+    else{
+        return state;
+    }
+}
+
 
 
 int main(int argc, char **argv) {
@@ -107,7 +271,6 @@ int main(int argc, char **argv) {
     }
 
     int PORT = atoi(argv[1]);
-    char Conn_info[4096];
     PGconn *PostGres_conn;
     PGresult *PostGres_res;
     {
@@ -244,7 +407,7 @@ int main(int argc, char **argv) {
                 fprintf(stdout, "[%s entered at %d-%02d-%02d %02d:%02d:%02d]\n", clientip, tm.tm_year + 1900,
                         tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
             }
-            char UUID_USER[129];
+            
             int USER_LOGGED = 0;
             while (f) {
                 memset(buf, 0, sizeof(buf));
@@ -280,13 +443,22 @@ int main(int argc, char **argv) {
                                                 sprintf(s_buf, "registered %s", UUID_USER);
                                                 if (send(fd, s_buf, strlen(s_buf), 0)){
                                                     fprintf(stdout, "User %s registered\n", UUID_USER);
+                                                    memset(query, 0, sizeof(query));
+                                                    sprintf(query, "insert into \"User_Priority\" values (DEFAULT, '%s')", UUID_USER);
+                                                    PQexec(PostGres_conn, query);
+                                                    memset(query, 0, sizeof(query));
+                                                    sprintf(query, "insert into \"User_Buildings\" values (DEFAULT, '%s')", UUID_USER);
+                                                    PQexec(PostGres_conn, query);
+                                                    memset(query, 0, sizeof(query));
+                                                    sprintf(query, "insert into \"User_Research\" values (DEFAULT, '%s')", UUID_USER);
+                                                    PQexec(PostGres_conn, query);
                                                     USER_LOGGED = 1;
                                                     success = 1;
                                                 }
                                                 else{
                                                     memset(query, 0, sizeof(query));
                                                     sprintf(query, "DELETE FROM \"Users\" WHERE \"Identificator\" = '%s'", UUID_USER);
-                                                    PostGres_res = PQexec(PostGres_conn, query);
+                                                    PQexec(PostGres_conn, query);
                                                     fprintf(stderr, "couldn't send message: %s\n", strerror(errno));
                                                     break;
                                                 }
@@ -365,6 +537,9 @@ int main(int argc, char **argv) {
                         }
                         
                         
+                    }
+                    else if (strncmp(buf, "update", 6) == 0 && USER_LOGGED) {
+                        //TODO
                     }
                 } else {
                     f = 0;
