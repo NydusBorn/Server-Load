@@ -79,24 +79,24 @@ fun PriorityScreen() {
         }
         FilledIconToggleButton(
             checked = dynamic_priority,
-            onCheckedChange = { dynamic_priority = !dynamic_priority },
             modifier = Modifier.width(
                 Dp(300f)
-            )
+            ),
+            onCheckedChange = { dynamic_priority = !dynamic_priority }
         ) {
             Text(text = "Dynamic priority")
         }
         FilledIconToggleButton(
             checked = dynamic_building_focus,
-            onCheckedChange = { dynamic_building_focus = !dynamic_building_focus },
-            modifier = Modifier.width(Dp(300f))
+            modifier = Modifier.width(Dp(300f)),
+            onCheckedChange = { dynamic_building_focus = !dynamic_building_focus }
         ) {
             Text(text = "Dynamic building focus")
         }
         FilledIconToggleButton(
             checked = dynamic_research_focus,
-            onCheckedChange = { dynamic_research_focus = !dynamic_research_focus },
-            modifier = Modifier.width(Dp(300f))
+            modifier = Modifier.width(Dp(300f)),
+            onCheckedChange = { dynamic_research_focus = !dynamic_research_focus }
         ) {
             Text(text = "Dynamic research focus")
         }
