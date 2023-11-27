@@ -15,6 +15,7 @@
 #include <linux/if_link.h>
 #include <time.h>
 #include "libpq-fe.h"
+#include "math.h"
 
 static const char HELLO[] = "Welcome to Server Load instance (version 0.1)\nType 'quit' to close the connection\n";
 static const char ERROR_NO_PORT_GIVEN[] = "You have given no port\n";
@@ -34,7 +35,7 @@ void q_signal_handler(int s) {
     fprintf(stdout, "Closing Server\n");
 }
 
-struct game_state{
+struct game_state {
     int focused_research;
     int focused_building;
     double build_priority;
@@ -42,36 +43,36 @@ struct game_state{
     double research_priority;
     long time;
     //Buildings
-    double building_bits;
-    double building_bytes;
-    double building_kilo_packers;
-    double building_mega_packers;
-    double building_giga_packers;
-    double building_tera_packers;
-    double building_peta_packers;
-    double building_exa_packers;
-    double building_processes;
-    double building_overflows;
+    long double building_bits;
+    long double building_bytes;
+    long double building_kilo_packers;
+    long double building_mega_packers;
+    long double building_giga_packers;
+    long double building_tera_packers;
+    long double building_peta_packers;
+    long double building_exa_packers;
+    long double building_processes;
+    long double building_overflows;
     //Research
-    double research_bits_add;
-    double research_bits_mul;
-    double research_bytes_add;
-    double research_bytes_mul;
-    double research_kilo_add;
-    double research_kilo_mul;
-    double research_mega_add;
-    double research_mega_mul;
-    double research_giga_add;
-    double research_giga_mul;
-    double research_tera_add;
-    double research_tera_mul;
-    double research_peta_add;
-    double research_peta_mul;
-    double research_exa_add;
-    double research_exa_mul;
-    double research_process_mul;
-    double research_endgame;
-}; 
+    long double research_bits_add;
+    long double research_bits_mul;
+    long double research_bytes_add;
+    long double research_bytes_mul;
+    long double research_kilo_add;
+    long double research_kilo_mul;
+    long double research_mega_add;
+    long double research_mega_mul;
+    long double research_giga_add;
+    long double research_giga_mul;
+    long double research_tera_add;
+    long double research_tera_mul;
+    long double research_peta_add;
+    long double research_peta_mul;
+    long double research_exa_add;
+    long double research_exa_mul;
+    long double research_process_mul;
+    long double research_endgame;
+};
 
 struct game_state get_state_from_db() {
     struct game_state state;
@@ -82,7 +83,9 @@ struct game_state get_state_from_db() {
     if (PQstatus(PostGres_conn) == CONNECTION_OK) {
         char query[1024];
         memset(query, 0, sizeof(query));
-        sprintf(query, "select round(extract(epoch from \"Last seen\") * 1000) from \"Users\" where \"Identificator\" = '%s'", UUID_USER);
+        sprintf(query,
+                "select round(extract(epoch from \"Last seen\") * 1000) from \"Users\" where \"Identificator\" = '%s'",
+                UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
             goto escape;
@@ -92,7 +95,9 @@ struct game_state get_state_from_db() {
         state.time = atol(t_value);
         PQclear(res);
         memset(query, 0, sizeof(query));
-        sprintf(query, "select \"Build_Priority\", \"Boost_Priority\", \"Research_Priority\", \"Focused_Research\", \"Focused_Building\" from \"User_Priority\" join \"Users\" on \"Users\".\"Pk\" = \"User_Priority\".\"Fk_User\" where \"Identificator\" = '%s'", UUID_USER);
+        sprintf(query,
+                "select \"Build_Priority\", \"Boost_Priority\", \"Research_Priority\", \"Focused_Research\", \"Focused_Building\" from \"User_Priority\" join \"Users\" on \"Users\".\"Pk\" = \"User_Priority\".\"Fk_User\" where \"Identificator\" = '%s'",
+                UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
             goto escape;
@@ -109,7 +114,9 @@ struct game_state get_state_from_db() {
         state.focused_building = atoi(t_value);
         PQclear(res);
         memset(query, 0, sizeof(query));
-        sprintf(query, "select \"Bits\", \"Bytes\", \"Kilo_Packers\", \"Mega_Packers\", \"Giga_Packers\", \"Tera_Packers\", \"Peta_Packers\", \"Exa_Packers\", \"Processes\", \"Overflows\" from \"User_Buildings\" join \"Users\" on \"Users\".\"Pk\" = \"User_Buildings\".\"Fk_User\" where \"Identificator\" = '%s'", UUID_USER);
+        sprintf(query,
+                "select \"Bits\", \"Bytes\", \"Kilo_Packers\", \"Mega_Packers\", \"Giga_Packers\", \"Tera_Packers\", \"Peta_Packers\", \"Exa_Packers\", \"Processes\", \"Overflows\" from \"User_Buildings\" join \"Users\" on \"Users\".\"Pk\" = \"User_Buildings\".\"Fk_User\" where \"Identificator\" = '%s'",
+                UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
             goto escape;
@@ -136,7 +143,9 @@ struct game_state get_state_from_db() {
         state.building_overflows = atof(t_value);
         PQclear(res);
         memset(query, 0, sizeof(query));
-        sprintf(query, "select \"Bits_Add\", \"Bits_Mul\", \"Bytes_Add\", \"Bytes_Mul\", \"Kilo_Add\", \"Kilo_Mul\", \"Mega_Add\", \"Mega_Mul\", \"Giga_Add\", \"Giga_Mul\", \"Tera_Add\", \"Tera_Mul\", \"Peta_Add\", \"Peta_Mul\", \"Exa_Add\", \"Exa_Mul\", \"Process_Multiplier\", \"Game_End\" from \"User_Research\" join \"Users\" on \"Users\".\"Pk\" = \"User_Research\".\"Fk_User\" where \"Identificator\" = '%s'", UUID_USER);
+        sprintf(query,
+                "select \"Bits_Add\", \"Bits_Mul\", \"Bytes_Add\", \"Bytes_Mul\", \"Kilo_Add\", \"Kilo_Mul\", \"Mega_Add\", \"Mega_Mul\", \"Giga_Add\", \"Giga_Mul\", \"Tera_Add\", \"Tera_Mul\", \"Peta_Add\", \"Peta_Mul\", \"Exa_Add\", \"Exa_Mul\", \"Process_Multiplier\", \"Game_End\" from \"User_Research\" join \"Users\" on \"Users\".\"Pk\" = \"User_Research\".\"Fk_User\" where \"Identificator\" = '%s'",
+                UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
             goto escape;
@@ -189,13 +198,219 @@ struct game_state get_state_from_db() {
         struct game_state fail_state;
         fail_state.time = -1;
         return fail_state;
-    }
-    else{
+    } else {
         return state;
     }
 }
 
+void update_db_with_state(struct game_state state) {
+    PGconn *PostGres_conn;
+    PGresult *res;
+    PostGres_conn = PQconnectdb(Conn_info);
+    int success = 0;
+    if (PQstatus(PostGres_conn) == CONNECTION_OK) {
+        char query[4096];
+        memset(query, 0, sizeof(query));
+        sprintf(query,
+                "update \"Users\" set \"Last seen\" = cast(to_timestamp(%ld / 1000)) where \"Identificator\" = '%s'",
+                state.time, UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            goto escape;
+        }
+        PQclear(res);
+        memset(query, 0, sizeof(query));
+        sprintf(query,
+                "update \"User_Priority\" set \"Build_Priority\" = %f and \"Boost_Priority\" = %f and \"Research_Priority\" = %f and \"Focused_Research\" = %d and \"Focused_Building\" = %d from \"User_Priority\" join \"Users\" on \"User_Priority\".\"Fk_User\" = \"Users\".\"Pk\" where \"Users\".\"Identificator\" = '%s'",
+                state.build_priority, state.boost_priority, state.research_priority, state.focused_research,
+                state.focused_building, UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            goto escape;
+        }
+        PQclear(res);
+        memset(query, 0, sizeof(query));
+        sprintf(query,
+                "update \"User_Buildings\" set \"Bits\" = %f and \"Bytes\" = %f and \"Kilo_Packers\" = %f and \"Mega_Packers\" = %f and \"Giga_Packers\" = %f and \"Tera_Packers\" = %f and \"Peta_Packers\" = %f and \"Exa_Packers\" = %f and \"Processes\" = %f and \"Overflows\" = %f from \"User_Buildings\" join \"Users\" on \"User_Buildings\".\"Fk_User\" = \"Users\".\"Pk\" where \"Users\".\"Identificator\" = '%s'",
+                state.building_bits, state.building_bytes, state.building_kilo_packers, state.building_mega_packers,
+                state.building_giga_packers, state.building_tera_packers, state.building_peta_packers,
+                state.building_exa_packers, state.building_processes, state.building_overflows, UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            goto escape;
+        }
+        PQclear(res);
+        memset(query, 0, sizeof(query));
+        sprintf(query,
+                "update \"User_Research\" set \"Bits_Add\" = %f and \"Bits_Mul\" = %f and \"Bytes_Add\" = %f and \"Bytes_Mul\" = %f and \"Kilo_Add\" = %f and \"Kilo_Mul\" = %f and \"Mega_Add\" = %f and \"Mega_Mul\" = %f and \"Giga_Add\" = %f and \"Giga_Mul\" = %f and \"Tera_Add\" = %f and \"Tera_Mul\" = %f and \"Peta_Add\" = %f and \"Peta_Mul\" = %f and \"Exa_Add\" = %f and \"Exa_Mul\" = %f and \"Process_Multiplier\" = %f and \"Game_End\" = %f from \"User_Research\" join \"Users\" on \"User_Research\".\"Fk_User\" = \"Users\".\"Pk\" where \"Users\".\"Identificator\" = '%s'",
+                state.research_bits_add, state.research_bits_mul, state.research_bytes_add, state.research_bytes_mul,
+                state.research_kilo_add, state.research_kilo_mul, state.research_mega_add, state.research_mega_mul,
+                state.research_giga_add, state.research_giga_mul, state.research_tera_add, state.research_tera_mul,
+                state.research_peta_add, state.research_peta_mul, state.research_exa_add, state.research_exa_mul,
+                state.research_process_mul, state.research_endgame, UUID_USER);
+        res = PQexec(PostGres_conn, query);
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            goto escape;
+        }
+        PQclear(res);
+        PQfinish(PostGres_conn);
+        success = 1;
+    }
+    escape:
+    if (!success) {
+        fprintf(stderr, "Error code on PQconnectdb (if any): %s\n", PQerrorMessage(PostGres_conn));
+        fprintf(stderr, "Error code on PQresultStatus (if any): %d\n", PQresultStatus(res));
+        PQfinish(PostGres_conn);
+    }
+}
 
+struct game_state update_game_state(struct game_state initial_state, long new_time) {
+    struct game_state new_state = initial_state;
+    new_state.time = new_time;
+    long time_diff = new_time - initial_state.time;
+    if (time_diff < 0) {
+        return initial_state;
+    }
+    long double procured_value = 0;
+    long double time_mul = 0.001;
+    procured_value += powl((floorl(initial_state.building_exa_packers) + floorl(initial_state.research_exa_add)) *
+                           powl(powl(2, 1.0 / 8),
+                                floorl(initial_state.research_exa_mul)),
+                           fminimum_numl(1, (initial_state.building_overflows - 8) /
+                                            powl(5, 8) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_peta_packers) + floorl(initial_state.research_peta_add)) *
+                           powl(powl(2, 1.0 / 7),
+                                floorl(initial_state.research_peta_mul)),
+                           fminimum_numl(1, (initial_state.building_overflows - 7) /
+                                            powl(5, 7) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_tera_packers) + floorl(initial_state.research_tera_add)) *
+                           powl(powl(2, 1.0 / 6),
+                                floorl(initial_state.research_tera_mul)),
+                           fminimum_numl(1, (initial_state.building_overflows - 6) /
+                                            powl(5, 6) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_giga_packers) + floorl(initial_state.research_giga_add)) *
+                           powl(powl(2, 1.0 / 5),
+                                floorl(initial_state.research_giga_mul)),
+                           fminimum_numl(1, (initial_state.building_overflows - 4) /
+                                            powl(5, 5) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_mega_packers) + floorl(initial_state.research_mega_add)) *
+                           powl(powl(2, 1.0 / 4),
+                                floorl(initial_state.research_mega_mul)),
+                           fminimum_numl(1, (initial_state.building_overflows - 3) /
+                                            powl(5, 4) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_kilo_packers) + floorl(initial_state.research_kilo_add)) *
+                           powl(powl(2, 1.0 / 3),
+                                floorl(initial_state.research_kilo_mul)),
+                           fminimum_numl(1, (initial_state.building_overflows - 2) /
+                                            powl(5, 3) + 1));
+    procured_value *= 1024;
+    procured_value += powl(
+            (floorl(initial_state.building_bytes) + floorl(initial_state.research_bytes_add)) * powl(powl(2, 1.0 / 2),
+                                                                                                     floorl(initial_state.research_bytes_mul)),
+            fminimum_numl(1, (initial_state.building_overflows - 1) /
+                             powl(5, 2) + 1));
+    procured_value *= 8;
+    procured_value += powl((floorl(initial_state.building_bits) + floorl(initial_state.research_bits_add)) *
+                           powl(2, floorl(initial_state.research_bits_mul)),
+                           fminimum_numl(1, initial_state.building_overflows / 5 + 1));
+    procured_value *= (floorl(initial_state.building_processes) *
+                       powl(3, floorl(initial_state.research_process_mul - 1)));
+    procured_value *= powl(2, 5 * initial_state.boost_priority);
+    procured_value *= time_mul;
+    procured_value *= time_diff;
+    long double building_value = procured_value * powl(initial_state.build_priority, 2);
+    long double research_value = procured_value * powl(initial_state.research_priority, 2);
+    switch (initial_state.focused_building) {
+        case 0:
+            new_state.building_bits = powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1);
+            break;
+        case 1:
+            new_state.building_bytes = powl(powl(24 * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24;
+            break;
+        case 2:
+            new_state.building_kilo_packers = powl(powl(1024 * 3 * initial_state.building_kilo_packers, 1.1) + building_value, 1.0 / 1.1) / (1024 * 3);
+            break;
+        case 3:
+            new_state.building_mega_packers = powl(powl((powl(1024,2) * 3) * initial_state.building_mega_packers, 1.1) + building_value, 1.0 / 1.1) / (powl(1024,2) * 3);
+            break;
+        case 4:
+            new_state.building_giga_packers = powl(powl((powl(1024,3) * 3) * initial_state.building_giga_packers, 1.1) + building_value, 1.0 / 1.1) / (powl(1024,3) * 3);
+            break;
+        case 5:
+            new_state.building_tera_packers = powl(powl((powl(1024,4) * 3) * initial_state.building_tera_packers, 1.1) + building_value, 1.0 / 1.1) / (powl(1024,4) * 3);
+            break;
+        case 6:
+            new_state.building_peta_packers = powl(powl((powl(1024,5) * 3) * initial_state.building_peta_packers, 1.1) + building_value, 1.0 / 1.1) / (powl(1024,5) * 3);
+            break;
+        case 7:
+            new_state.building_exa_packers = powl(powl((powl(1024,6) * 3) * initial_state.building_exa_packers, 1.1) + building_value, 1.0 / 1.1) / (powl(1024,6) * 3);
+            break;
+        case 8:
+            new_state.building_processes = powl(powl(initial_state.building_processes, 5) + building_value, 1.0 / 5);
+            break;
+    }
+    switch (initial_state.focused_research) {
+        case 0:
+            new_state.research_bits_add = powl(powl(100 * initial_state.research_bits_add, 1.1) + research_value, 1.0 / 1.1) / 100;
+            break;
+        case 1:
+            new_state.research_bits_mul = powl(powl(500 * initial_state.research_bits_mul, 1.3) + research_value, 1.0 / 1.3) / 500;
+            break;
+        case 2:
+            new_state.research_bytes_add = powl(powl(24 * 100 * initial_state.research_bytes_add, 1.1) + research_value, 1.0 / 1.1) / (24 *100);
+            break;
+        case 3:
+            new_state.research_bytes_mul = powl(powl(24 * 500 * initial_state.research_bytes_mul, 1.3) + research_value, 1.0 / 1.3) / (24 * 500);
+            break;
+        case 4:
+            new_state.research_kilo_add = powl(powl(1024 * 3 * 100 * initial_state.research_kilo_add, 1.1) + research_value, 1.0 / 1.1) / (1024 * 3 * 100);
+            break;
+        case 5:
+            new_state.research_kilo_mul = powl(powl(1024 * 3 * 500 * initial_state.research_kilo_mul, 1.3) + research_value, 1.0 / 1.3) / (1024 * 3 * 500);
+            break;
+        case 6:
+            new_state.research_mega_add = powl(powl((powl(1024,2) * 3) * 100 * initial_state.research_mega_add, 1.1) + research_value, 1.0 / 1.1) / ((powl(1024,2) * 3) * 100);
+            break;
+        case 7:
+            new_state.research_mega_mul = powl(powl((powl(1024,2) * 3) * 500 * initial_state.research_mega_mul, 1.3) + research_value, 1.0 / 1.3) / ((powl(1024,2) * 3) * 500);
+            break;
+        case 8:
+            new_state.research_giga_add = powl(powl((powl(1024,3) * 3) * 100 * initial_state.research_giga_add, 1.1) + research_value, 1.0 / 1.1) / ((powl(1024,3) * 3) * 100);
+            break;
+        case 9:
+            new_state.research_giga_mul = powl(powl((powl(1024,3) * 3) * 500 * initial_state.research_giga_mul, 1.3) + research_value, 1.0 / 1.3) / ((powl(1024,3) * 3) * 500);
+            break;
+        case 10:
+            new_state.research_tera_add = powl(powl((powl(1024,4) * 3) * 100 * initial_state.research_tera_add, 1.1) + research_value, 1.0 / 1.1) / ((powl(1024,4) * 3) * 100);
+            break;
+        case 11:
+            new_state.research_tera_mul = powl(powl((powl(1024,4) * 3) * 500 * initial_state.research_tera_mul, 1.3) + research_value, 1.0 / 1.3) / ((powl(1024,4) * 3) * 500);
+            break;
+        case 12:
+            new_state.research_peta_add = powl(powl((powl(1024,5) * 3) * 100 * initial_state.research_peta_add, 1.1) + research_value, 1.0 / 1.1) / ((powl(1024,5) * 3) * 100);
+            break;
+        case 13:
+            new_state.research_peta_mul = powl(powl((powl(1024,5) * 3) * 500 * initial_state.research_peta_mul, 1.3) + research_value, 1.0 / 1.3) / ((powl(1024,5) * 3) * 500);
+            break;
+        case 14:
+            new_state.research_exa_add = powl(powl((powl(1024,6) * 3) * 100 * initial_state.research_exa_add, 1.1) + research_value, 1.0 / 1.1) / ((powl(1024,6) * 3) * 100);
+            break;
+        case 15:
+            new_state.research_exa_mul = powl(powl((powl(1024,6) * 3) * 500 * initial_state.research_exa_mul, 1.3) + research_value, 1.0 / 1.3) / ((powl(1024,6) * 3) * 500);
+            break;
+        case 16:
+            new_state.research_process_mul = powl(powl(1e8 * initial_state.research_process_mul, 5) + research_value, 1.0 / 5) / (1e8);
+            break;
+    }
+    return new_state;
+}
+
+//TODO: make dynamic determinators
 
 int main(int argc, char **argv) {
     ssize_t HELLO_SIZE = strlen(HELLO);
@@ -407,7 +622,7 @@ int main(int argc, char **argv) {
                 fprintf(stdout, "[%s entered at %d-%02d-%02d %02d:%02d:%02d]\n", clientip, tm.tm_year + 1900,
                         tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
             }
-            
+
             int USER_LOGGED = 0;
             while (f) {
                 memset(buf, 0, sizeof(buf));
@@ -441,49 +656,56 @@ int main(int argc, char **argv) {
                                                 char s_buf[1024];
                                                 memset(s_buf, 0, sizeof(s_buf));
                                                 sprintf(s_buf, "registered %s", UUID_USER);
-                                                if (send(fd, s_buf, strlen(s_buf), 0)){
+                                                if (send(fd, s_buf, strlen(s_buf), 0)) {
                                                     fprintf(stdout, "User %s registered\n", UUID_USER);
                                                     memset(query, 0, sizeof(query));
-                                                    sprintf(query, "insert into \"User_Priority\" values (DEFAULT, '%s')", UUID_USER);
+                                                    sprintf(query,
+                                                            "insert into \"User_Priority\" values (DEFAULT, '%s')",
+                                                            UUID_USER);
                                                     PQexec(PostGres_conn, query);
                                                     memset(query, 0, sizeof(query));
-                                                    sprintf(query, "insert into \"User_Buildings\" values (DEFAULT, '%s')", UUID_USER);
+                                                    sprintf(query,
+                                                            "insert into \"User_Buildings\" values (DEFAULT, '%s')",
+                                                            UUID_USER);
                                                     PQexec(PostGres_conn, query);
                                                     memset(query, 0, sizeof(query));
-                                                    sprintf(query, "insert into \"User_Research\" values (DEFAULT, '%s')", UUID_USER);
+                                                    sprintf(query,
+                                                            "insert into \"User_Research\" values (DEFAULT, '%s')",
+                                                            UUID_USER);
                                                     PQexec(PostGres_conn, query);
                                                     USER_LOGGED = 1;
                                                     success = 1;
-                                                }
-                                                else{
+                                                } else {
                                                     memset(query, 0, sizeof(query));
-                                                    sprintf(query, "DELETE FROM \"Users\" WHERE \"Identificator\" = '%s'", UUID_USER);
+                                                    sprintf(query,
+                                                            "DELETE FROM \"Users\" WHERE \"Identificator\" = '%s'",
+                                                            UUID_USER);
                                                     PQexec(PostGres_conn, query);
                                                     fprintf(stderr, "couldn't send message: %s\n", strerror(errno));
                                                     break;
                                                 }
-                                            }else{
-                                                fprintf(stderr, "Couldn't insert user: %s\n", PQresultErrorMessage(PostGres_res));
+                                            } else {
+                                                fprintf(stderr, "Couldn't insert user: %s\n",
+                                                        PQresultErrorMessage(PostGres_res));
                                                 break;
                                             }
                                             PQclear(PostGres_res);
                                             PQfinish(PostGres_conn);
-                                        }
-                                        else{
+                                        } else {
                                             PQclear(PostGres_res);
                                             PQfinish(PostGres_conn);
                                         }
-                                    }
-                                    else{
+                                    } else {
                                         PQclear(PostGres_res);
                                         PQfinish(PostGres_conn);
-                                        fprintf(stderr, "Failed to select users: %s\n", PQresultErrorMessage(PostGres_res));
+                                        fprintf(stderr, "Failed to select users: %s\n",
+                                                PQresultErrorMessage(PostGres_res));
                                         break;
                                     }
-                                }
-                                else{
+                                } else {
                                     PQfinish(PostGres_conn);
-                                    fprintf(stderr, "Failed to connect to database: %s\n", PQerrorMessage(PostGres_conn));
+                                    fprintf(stderr, "Failed to connect to database: %s\n",
+                                            PQerrorMessage(PostGres_conn));
                                     f = 0;
                                     break;
                                 }
@@ -492,17 +714,16 @@ int main(int argc, char **argv) {
                                 fprintf(stderr, "Failed to register user\n");
                             }
                         }
-                    }
-                    else if (strncmp(buf, "login", 5) == 0 && !USER_LOGGED) {
+                    } else if (strncmp(buf, "login", 5) == 0 && !USER_LOGGED) {
                         char *user_attempt;
                         user_attempt = strdup(buf);
                         strsep(&user_attempt, " ");
                         user_attempt = strsep(&user_attempt, " ");
                         //TODO: Check for memory leaks with valgrind or something
-                        if (strlen(user_attempt) != 128){
+                        if (strlen(user_attempt) != 128) {
                             fprintf(stderr, "Incorrect login length\n");
                             continue;
-                        } 
+                        }
                         fprintf(stdout, "Logging in user\n");
                         {
                             PostGres_conn = PQconnectdb(Conn_info);
@@ -515,37 +736,33 @@ int main(int argc, char **argv) {
                                     if (PQntuples(PostGres_res) == 1) {
                                         memcpy(UUID_USER, user_attempt, strlen(user_attempt));
                                         UUID_USER[128] = '\0';
-                                        if (send(fd, "logged", 6, 0)){
+                                        if (send(fd, "logged", 6, 0)) {
                                             fprintf(stdout, "User %s logged in\n", UUID_USER);
                                             USER_LOGGED = 1;
-                                        }
-                                        else{
+                                        } else {
                                             fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
                                         }
-                                    }
-                                    else{
+                                    } else {
                                         send(fd, "failed login", 12, 0);
                                         fprintf(stderr, "User %s not found\n", user_attempt);
                                     }
-                                }
-                                else{
+                                } else {
                                     fprintf(stderr, "Failed to select users: %s\n", PQresultErrorMessage(PostGres_res));
                                 }
                                 PQclear(PostGres_res);
                             }
                             PQfinish(PostGres_conn);
                         }
-                        
-                        
-                    }
-                    else if (strncmp(buf, "update", 6) == 0 && USER_LOGGED) {
+
+
+                    } else if (strncmp(buf, "update", 6) == 0 && USER_LOGGED) {
                         //TODO
                     }
                 } else {
                     f = 0;
                 }
             }
-            
+
             fprintf(stdout, "Closing connection from %s\n", clientip);
             setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, NULL, sizeof(int));
             shutdown(fd, SHUT_RDWR);
