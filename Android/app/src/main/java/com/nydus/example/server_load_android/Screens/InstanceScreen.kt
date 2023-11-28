@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.nydus.example.server_load_android.Connector
+import com.nydus.example.server_load_android.GameState
 import com.nydus.example.server_load_android.MainActivity
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -98,6 +99,11 @@ fun InstanceScreen() {
                     Connector.AppMainThread.post {
                         Connector.NavController?.navigate("Priority")
                         Connector.BottomNavBarVisibility.floatValue = 1f
+                    }
+                    GlobalScope.run { 
+                        async { 
+                            GameState.requestResolver.invoke()
+                        }
                     }
                     return@async
                 } catch (e: Exception) {
@@ -193,6 +199,11 @@ fun InstanceScreen() {
                     Connector.AppMainThread.post {
                         Connector.NavController?.navigate("Priority")
                         Connector.BottomNavBarVisibility.floatValue = 1f
+                    }
+                    GlobalScope.run {
+                        async {
+                            GameState.requestResolver.invoke()
+                        }
                     }
                 } catch (e: Exception) {
                     Connector.AppMainThread.post {

@@ -18,6 +18,9 @@ import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,21 +29,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.Dp
+import com.nydus.example.server_load_android.GameState
+import com.nydus.example.server_load_android.ServerRequest
+import com.nydus.example.server_load_android.ServerRequestType
+import java.time.Instant
 
 @Composable
 fun PriorityScreen() {
-    var building_priority by remember { mutableFloatStateOf(0.5f) }
-    var research_priority by remember { mutableFloatStateOf(0.5f) }
-    var boost_priority by remember { mutableFloatStateOf(0.5f) }
-    var dynamic_priority by remember {
-        mutableStateOf(false)
-    }
-    var dynamic_building_focus by remember {
-        mutableStateOf(false)
-    }
-    var dynamic_research_focus by remember {
-        mutableStateOf(false)
+    LaunchedEffect(LocalLifecycleOwner.current){
+        GameState.requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), GameState::Update))
     }
     Column(
         verticalArrangement = Arrangement.Center,
@@ -50,53 +49,73 @@ fun PriorityScreen() {
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Building priority")
             Slider(
-                value = building_priority,
+                value = GameState.BuildingPriority.floatValue % 1f,
                 modifier = Modifier.offset(x = Dp(0f), y = Dp(10f)),
                 onValueChange = {
-                    building_priority = it
-                    dynamic_priority = false
+                    GameState.BuildingPriority.floatValue = it
                 })
         }
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Research priority")
             Slider(
-                value = research_priority,
+                value = GameState.ResearchPriority.floatValue % 1f,
                 modifier = Modifier.offset(x = Dp(0f), y = Dp(10f)),
                 onValueChange = {
-                    research_priority = it
-                    dynamic_priority = false
+                    GameState.ResearchPriority.floatValue = it
                 })
         }
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Boost priority")
             Slider(
-                value = boost_priority,
+                value = GameState.BoostPriority.floatValue % 1f,
                 modifier = Modifier.offset(x = Dp(0f), y = Dp(10f)),
                 onValueChange = {
-                    boost_priority = it
-                    dynamic_priority = false
+                    GameState.BoostPriority.floatValue = it
                 })
         }
         FilledIconToggleButton(
-            checked = dynamic_priority,
+            checked = GameState.BoostPriority.floatValue > 1f,
             modifier = Modifier.width(
                 Dp(300f)
             ),
-            onCheckedChange = { dynamic_priority = !dynamic_priority }
+            onCheckedChange = { if (GameState.BoostPriority.floatValue > 1f){
+                GameState.BoostPriority.floatValue -= 1f
+                GameState.BuildingPriority.floatValue -= 1f
+                GameState.ResearchPriority.floatValue -= 1f
+            } else {
+                GameState.BoostPriority.floatValue += 1f
+                GameState.BuildingPriority.floatValue += 1f
+                GameState.ResearchPriority.floatValue += 1f
+            }
+            }
         ) {
             Text(text = "Dynamic priority")
         }
         FilledIconToggleButton(
-            checked = dynamic_building_focus,
+            checked = GameState.FocusedBuilding.intValue == -2,
             modifier = Modifier.width(Dp(300f)),
-            onCheckedChange = { dynamic_building_focus = !dynamic_building_focus }
+            onCheckedChange = { 
+                if (GameState.FocusedBuilding.intValue == -2){
+                    GameState.FocusedBuilding.intValue = 0
+                }
+                else {
+                    GameState.FocusedBuilding.intValue = -2
+                }
+            }
         ) {
             Text(text = "Dynamic building focus")
         }
         FilledIconToggleButton(
-            checked = dynamic_research_focus,
+            checked = GameState.FocusedResearch.intValue == -2,
             modifier = Modifier.width(Dp(300f)),
-            onCheckedChange = { dynamic_research_focus = !dynamic_research_focus }
+            onCheckedChange = { 
+                if (GameState.FocusedResearch.intValue == -2){
+                    GameState.FocusedResearch.intValue = 0
+                }
+                else {
+                    GameState.FocusedResearch.intValue = -2
+                }
+            }
         ) {
             Text(text = "Dynamic research focus")
         }
