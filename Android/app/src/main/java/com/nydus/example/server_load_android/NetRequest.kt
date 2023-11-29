@@ -4,7 +4,7 @@ import java.time.Instant
 import kotlin.reflect.KSuspendFunction0
 
 enum class ServerRequestType{
-    update, setBoost, setResearch, setBuilding, setFocusedResearch, setFocusedBuilding 
+    update, setPriority, setFocusedResearch, setFocusedBuilding, overflow 
 }
 data class ServerRequest(
     val type: ServerRequestType,
@@ -22,31 +22,19 @@ data class ServerRequest(
                 -1
             } else{
                 when (this.type){
-                    ServerRequestType.setBoost -> {
+                    ServerRequestType.overflow -> {
                         when (other.type){
-                            ServerRequestType.setBoost -> 0
-                            ServerRequestType.setResearch -> -1
-                            ServerRequestType.setBuilding -> -2
-                            ServerRequestType.setFocusedResearch -> -3
-                            ServerRequestType.setFocusedBuilding -> -4
-                            ServerRequestType.update -> -5
-                        }
-                    }
-                    ServerRequestType.setResearch -> {
-                        when (other.type){
-                            ServerRequestType.setBoost -> 1
-                            ServerRequestType.setResearch -> 0
-                            ServerRequestType.setBuilding -> -1
+                            ServerRequestType.overflow -> 0
+                            ServerRequestType.setPriority -> -1
                             ServerRequestType.setFocusedResearch -> -2
                             ServerRequestType.setFocusedBuilding -> -3
                             ServerRequestType.update -> -4
                         }
                     }
-                    ServerRequestType.setBuilding -> {
+                    ServerRequestType.setPriority -> {
                         when (other.type){
-                            ServerRequestType.setBoost -> 2
-                            ServerRequestType.setResearch -> 1
-                            ServerRequestType.setBuilding -> 0
+                            ServerRequestType.overflow -> 1
+                            ServerRequestType.setPriority -> 0
                             ServerRequestType.setFocusedResearch -> -1
                             ServerRequestType.setFocusedBuilding -> -2
                             ServerRequestType.update -> -3
@@ -54,9 +42,8 @@ data class ServerRequest(
                     }
                     ServerRequestType.setFocusedResearch -> {
                         when (other.type){
-                            ServerRequestType.setBoost -> 3
-                            ServerRequestType.setResearch -> 2
-                            ServerRequestType.setBuilding -> 1
+                            ServerRequestType.overflow -> 2
+                            ServerRequestType.setPriority -> 1
                             ServerRequestType.setFocusedResearch -> 0
                             ServerRequestType.setFocusedBuilding -> -1
                             ServerRequestType.update -> -2
@@ -64,9 +51,8 @@ data class ServerRequest(
                     }
                     ServerRequestType.setFocusedBuilding -> {
                         when (other.type){
-                            ServerRequestType.setBoost -> 4
-                            ServerRequestType.setResearch -> 3
-                            ServerRequestType.setBuilding -> 2
+                            ServerRequestType.overflow -> 3
+                            ServerRequestType.setPriority -> 2
                             ServerRequestType.setFocusedResearch -> 1
                             ServerRequestType.setFocusedBuilding -> 0
                             ServerRequestType.update -> -1
@@ -74,9 +60,8 @@ data class ServerRequest(
                     }
                     ServerRequestType.update -> {
                         when (other.type){
-                            ServerRequestType.setBoost -> 5
-                            ServerRequestType.setResearch -> 4
-                            ServerRequestType.setBuilding -> 3
+                            ServerRequestType.overflow -> 4
+                            ServerRequestType.setPriority -> 3
                             ServerRequestType.setFocusedResearch -> 2
                             ServerRequestType.setFocusedBuilding -> 1
                             ServerRequestType.update -> 0

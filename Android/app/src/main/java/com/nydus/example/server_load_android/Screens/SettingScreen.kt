@@ -1,6 +1,5 @@
 ﻿package com.nydus.example.server_load_android.Screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +19,7 @@ import java.time.Instant
 @Composable
 fun SettingScreen() {
     LaunchedEffect(LocalLifecycleOwner.current){
-        GameState.requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), GameState::Update))
+        GameState.requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), GameState::update))
     }
     Column(
         verticalArrangement = Arrangement.Center,

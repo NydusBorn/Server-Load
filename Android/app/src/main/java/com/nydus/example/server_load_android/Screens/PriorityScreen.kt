@@ -1,34 +1,20 @@
 ﻿package com.nydus.example.server_load_android.Screens
 
-import android.widget.GridLayout
-import android.widget.ToggleButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilledIconToggleButton
-import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.Dp
 import com.nydus.example.server_load_android.GameState
@@ -38,8 +24,14 @@ import java.time.Instant
 
 @Composable
 fun PriorityScreen() {
-    LaunchedEffect(LocalLifecycleOwner.current){
-        GameState.requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), GameState::Update))
+    LaunchedEffect(LocalLifecycleOwner.current) {
+        GameState.requestQueue.add(
+            ServerRequest(
+                ServerRequestType.update,
+                Instant.now(),
+                GameState::update
+            )
+        )
     }
     Column(
         verticalArrangement = Arrangement.Center,
@@ -49,44 +41,99 @@ fun PriorityScreen() {
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Building priority")
             Slider(
-                value = GameState.BuildingPriority.floatValue % 1f,
+                value = GameState.BuildingPriority.floatValue,
                 modifier = Modifier.offset(x = Dp(0f), y = Dp(10f)),
                 onValueChange = {
+                    if (GameState.DynamicPriority.value) return@Slider
+                    var total = 1f
                     GameState.BuildingPriority.floatValue = it
+                    total -= GameState.BuildingPriority.floatValue
+                    if (GameState.ResearchPriority.floatValue > GameState.BoostPriority.floatValue) {
+                        total -= GameState.BoostPriority.floatValue
+                        GameState.ResearchPriority.floatValue = total
+                    } else {
+                        total -= GameState.ResearchPriority.floatValue
+                        GameState.BoostPriority.floatValue = total
+                    }
+                    GameState.PriorityRequestInProgress = true
+                    GameState.requestQueue.add(
+                        ServerRequest(
+                            ServerRequestType.setPriority,
+                            Instant.now(),
+                            GameState::setPriority
+                        )
+                    )
                 })
         }
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Research priority")
             Slider(
-                value = GameState.ResearchPriority.floatValue % 1f,
+                value = GameState.ResearchPriority.floatValue,
                 modifier = Modifier.offset(x = Dp(0f), y = Dp(10f)),
                 onValueChange = {
+                    if (GameState.DynamicPriority.value) return@Slider
+                    var total = 1f
                     GameState.ResearchPriority.floatValue = it
+                    total -= GameState.ResearchPriority.floatValue
+                    if (GameState.BuildingPriority.floatValue > GameState.BoostPriority.floatValue) {
+                        total -= GameState.BoostPriority.floatValue
+                        GameState.BuildingPriority.floatValue = total
+                    } else {
+                        total -= GameState.BuildingPriority.floatValue
+                        GameState.BoostPriority.floatValue = total
+                    }
+                    GameState.PriorityRequestInProgress = true
+                    GameState.requestQueue.add(
+                        ServerRequest(
+                            ServerRequestType.setPriority,
+                            Instant.now(),
+                            GameState::setPriority
+                        )
+                    )
                 })
         }
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(text = "Boost priority")
             Slider(
-                value = GameState.BoostPriority.floatValue % 1f,
+                value = GameState.BoostPriority.floatValue,
                 modifier = Modifier.offset(x = Dp(0f), y = Dp(10f)),
                 onValueChange = {
+                    if (GameState.DynamicPriority.value) return@Slider
+                    var total = 1f
                     GameState.BoostPriority.floatValue = it
+                    total -= GameState.BoostPriority.floatValue
+                    if (GameState.ResearchPriority.floatValue > GameState.BuildingPriority.floatValue) {
+                        total -= GameState.BuildingPriority.floatValue
+                        GameState.ResearchPriority.floatValue = total
+                    } else {
+                        total -= GameState.ResearchPriority.floatValue
+                        GameState.BuildingPriority.floatValue = total
+                    }
+                    GameState.PriorityRequestInProgress = true
+                    GameState.requestQueue.add(
+                        ServerRequest(
+                            ServerRequestType.setPriority,
+                            Instant.now(),
+                            GameState::setPriority
+                        )
+                    )
                 })
         }
         FilledIconToggleButton(
-            checked = GameState.BoostPriority.floatValue > 1f,
+            checked = GameState.DynamicPriority.value,
             modifier = Modifier.width(
                 Dp(300f)
             ),
-            onCheckedChange = { if (GameState.BoostPriority.floatValue > 1f){
-                GameState.BoostPriority.floatValue -= 1f
-                GameState.BuildingPriority.floatValue -= 1f
-                GameState.ResearchPriority.floatValue -= 1f
-            } else {
-                GameState.BoostPriority.floatValue += 1f
-                GameState.BuildingPriority.floatValue += 1f
-                GameState.ResearchPriority.floatValue += 1f
-            }
+            onCheckedChange = {
+                GameState.DynamicPriority.value = !GameState.DynamicPriority.value
+                GameState.PriorityRequestInProgress = true
+                GameState.requestQueue.add(
+                    ServerRequest(
+                        ServerRequestType.setPriority,
+                        Instant.now(),
+                        GameState::setPriority
+                    )
+                )
             }
         ) {
             Text(text = "Dynamic priority")
@@ -94,13 +141,20 @@ fun PriorityScreen() {
         FilledIconToggleButton(
             checked = GameState.FocusedBuilding.intValue == -2,
             modifier = Modifier.width(Dp(300f)),
-            onCheckedChange = { 
-                if (GameState.FocusedBuilding.intValue == -2){
+            onCheckedChange = {
+                if (GameState.FocusedBuilding.intValue == -2) {
                     GameState.FocusedBuilding.intValue = 0
-                }
-                else {
+                } else {
                     GameState.FocusedBuilding.intValue = -2
                 }
+                GameState.FocusBuildingRequestInProgress = true
+                GameState.requestQueue.add(
+                    ServerRequest(
+                        ServerRequestType.setFocusedBuilding,
+                        Instant.now(),
+                        GameState::setFocusedBuilding
+                    )
+                )
             }
         ) {
             Text(text = "Dynamic building focus")
@@ -108,13 +162,20 @@ fun PriorityScreen() {
         FilledIconToggleButton(
             checked = GameState.FocusedResearch.intValue == -2,
             modifier = Modifier.width(Dp(300f)),
-            onCheckedChange = { 
-                if (GameState.FocusedResearch.intValue == -2){
+            onCheckedChange = {
+                if (GameState.FocusedResearch.intValue == -2) {
                     GameState.FocusedResearch.intValue = 0
-                }
-                else {
+                } else {
                     GameState.FocusedResearch.intValue = -2
                 }
+                GameState.FocusResearchRequestInProgress = true
+                GameState.requestQueue.add(
+                    ServerRequest(
+                        ServerRequestType.setFocusedResearch,
+                        Instant.now(),
+                        GameState::setFocusedResearch
+                    )
+                )
             }
         ) {
             Text(text = "Dynamic research focus")

@@ -16,7 +16,7 @@ import java.time.Instant
 @Composable
 fun ResearchScreen(){
     LaunchedEffect(LocalLifecycleOwner.current){
-        GameState.requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), GameState::Update))
+        GameState.requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), GameState::update))
     }
     Column(
         verticalArrangement = Arrangement.Center,
