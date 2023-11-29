@@ -42,6 +42,7 @@ struct game_state {
     double build_priority;
     double boost_priority;
     double research_priority;
+    int dynamic_priority;
     long time;
     //Buildings
     long double building_bits;
@@ -53,7 +54,7 @@ struct game_state {
     long double building_peta_packers;
     long double building_exa_packers;
     long double building_processes;
-    long double building_overflows;
+    int building_overflows;
     //Research
     long double research_bits_add;
     long double research_bits_mul;
@@ -97,7 +98,7 @@ struct game_state get_state_from_db() {
         PQclear(res);
         memset(query, 0, sizeof(query));
         sprintf(query,
-                "select \"Build_Priority\", \"Boost_Priority\", \"Research_Priority\", \"Focused_Research\", \"Focused_Building\" from \"User_Priority\" join \"Users\" on \"Users\".\"Pk\" = \"User_Priority\".\"Fk_User\" where \"Identificator\" = '%s'",
+                "select \"Build_Priority\", \"Boost_Priority\", \"Research_Priority\", \"Focused_Research\", \"Focused_Building\", \"Dynamic_Priority\" from \"User_Priority\" join \"Users\" on \"Users\".\"Pk\" = \"User_Priority\".\"Fk_User\" where \"Identificator\" = '%s'",
                 UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -113,6 +114,8 @@ struct game_state get_state_from_db() {
         state.focused_research = atoi(t_value);
         t_value = PQgetvalue(res, 0, 4);
         state.focused_building = atoi(t_value);
+        t_value = PQgetvalue(res, 0, 5);
+        state.dynamic_priority = atof(t_value);
         PQclear(res);
         memset(query, 0, sizeof(query));
         sprintf(query,
@@ -141,7 +144,7 @@ struct game_state get_state_from_db() {
         t_value = PQgetvalue(res, 0, 8);
         state.building_processes = atof(t_value);
         t_value = PQgetvalue(res, 0, 9);
-        state.building_overflows = atof(t_value);
+        state.building_overflows = atoi(t_value);
         PQclear(res);
         memset(query, 0, sizeof(query));
         sprintf(query,
@@ -222,9 +225,9 @@ void update_db_with_state(struct game_state state) {
         PQclear(res);
         memset(query, 0, sizeof(query));
         sprintf(query,
-                "update \"User_Priority\" set \"Build_Priority\" = %f, \"Boost_Priority\" = %f, \"Research_Priority\" = %f, \"Focused_Research\" = %d, \"Focused_Building\" = %d from \"Users\" where \"Fk_User\" = \"Users\".\"Pk\" and \"Identificator\" = '%s'",
+                "update \"User_Priority\" set \"Build_Priority\" = %f, \"Boost_Priority\" = %f, \"Research_Priority\" = %f, \"Focused_Research\" = %d, \"Focused_Building\" = %d, \"Dynamic_Priority\" = %d from \"Users\" where \"Fk_User\" = \"Users\".\"Pk\" and \"Identificator\" = '%s'",
                 state.build_priority, state.boost_priority, state.research_priority, state.focused_research,
-                state.focused_building, UUID_USER);
+                state.focused_building, state.dynamic_priority, UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
             goto escape;
@@ -232,7 +235,7 @@ void update_db_with_state(struct game_state state) {
         PQclear(res);
         memset(query, 0, sizeof(query));
         sprintf(query,
-                "update \"User_Buildings\" set \"Bits\" = %Lf, \"Bytes\" = %Lf, \"Kilo_Packers\" = %Lf, \"Mega_Packers\" = %Lf, \"Giga_Packers\" = %Lf, \"Tera_Packers\" = %Lf, \"Peta_Packers\" = %Lf, \"Exa_Packers\" = %Lf, \"Processes\" = %Lf, \"Overflows\" = %Lf from \"Users\" where \"Users\".\"Pk\" = \"Fk_User\" and \"Identificator\" = '%s'",
+                "update \"User_Buildings\" set \"Bits\" = %Lf, \"Bytes\" = %Lf, \"Kilo_Packers\" = %Lf, \"Mega_Packers\" = %Lf, \"Giga_Packers\" = %Lf, \"Tera_Packers\" = %Lf, \"Peta_Packers\" = %Lf, \"Exa_Packers\" = %Lf, \"Processes\" = %Lf, \"Overflows\" = %d from \"Users\" where \"Users\".\"Pk\" = \"Fk_User\" and \"Identificator\" = '%s'",
                 state.building_bits, state.building_bytes, state.building_kilo_packers, state.building_mega_packers,
                 state.building_giga_packers, state.building_tera_packers, state.building_peta_packers,
                 state.building_exa_packers, state.building_processes, state.building_overflows, UUID_USER);
@@ -455,6 +458,36 @@ struct game_state update_game_state(struct game_state initial_state, long new_ti
     return new_state;
 }
 
+struct game_state reset_non_persistent_params(struct game_state old_state){
+    struct game_state new_state = old_state;
+    new_state.building_bits = 1;
+    new_state.building_bytes = 0;
+    new_state.building_kilo_packers = 0;
+    new_state.building_mega_packers = 0;
+    new_state.building_giga_packers = 0;
+    new_state.building_tera_packers = 0;
+    new_state.building_peta_packers = 0;
+    new_state.building_exa_packers = 0;
+    new_state.research_process_mul = 0;
+    new_state.research_bits_add = 0;
+    new_state.research_bits_mul = 0;
+    new_state.research_bytes_add = 0;
+    new_state.research_bytes_mul = 0;
+    new_state.research_kilo_add = 0;
+    new_state.research_kilo_mul = 0;
+    new_state.research_mega_add = 0;
+    new_state.research_mega_mul = 0;
+    new_state.research_giga_add = 0;
+    new_state.research_giga_mul = 0;
+    new_state.research_tera_add = 0;
+    new_state.research_tera_mul = 0;
+    new_state.research_peta_add = 0;
+    new_state.research_peta_mul = 0;
+    new_state.research_exa_add = 0;
+    new_state.research_exa_mul = 0;
+    return new_state;
+}
+
 //TODO: make dynamic determinators
 
 int main(int argc, char **argv) {
@@ -670,7 +703,7 @@ int main(int argc, char **argv) {
 
             int USER_LOGGED = 0;
             char UUID_USER_SHORT[16];
-            while (f) {
+            while (f && active) {
                 memset(buf, 0, sizeof(buf));
                 if (recv(fd, buf, 254, 0) > 0) {
                     time_t t = time(NULL);
@@ -839,9 +872,9 @@ int main(int argc, char **argv) {
                                 char message[16384];
                                 memset(message, 0, sizeof(message));
                                 sprintf(message,
-                                        "updated %f %f %f %d %d %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf",
+                                        "updated %f %f %f %d %d %d %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %d %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf %Lf",
                                         new_state.build_priority, new_state.boost_priority,
-                                        new_state.research_priority, new_state.focused_research, new_state.focused_building,
+                                        new_state.research_priority, new_state.focused_research, new_state.focused_building, new_state.dynamic_priority, 
                                         new_state.building_bits, new_state.building_bytes, new_state.building_kilo_packers,
                                         new_state.building_mega_packers, new_state.building_giga_packers,
                                         new_state.building_tera_packers, new_state.building_peta_packers,
@@ -863,6 +896,118 @@ int main(int argc, char **argv) {
                                     fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
                                 }
                             }
+                        }
+                    }
+                    else if (strncmp(buf, "set_priority", 12) == 0 && USER_LOGGED) {
+                        fprintf(stdout, "Setting priority of %s\n", UUID_USER_SHORT);
+                        struct game_state previous_state = get_state_from_db();
+                        double boost_priority = 1;
+                        double research_priority = 1;
+                        double build_priority = 1;
+                        int dynamic_priority = 0;
+                        char dispose[128];
+                        sscanf(buf, "%s %lf %lf %lf %d", dispose, &boost_priority, &research_priority, &build_priority, &dynamic_priority);
+                        if (send(fd, "ok", 2, 0)) {
+                            fprintf(stdout, "Priority set to %lf %lf %lf %d\n", boost_priority, research_priority, build_priority, dynamic_priority);
+                            struct game_state new_state = previous_state;
+                            new_state.boost_priority = boost_priority;
+                            new_state.research_priority = research_priority;
+                            new_state.build_priority = build_priority;
+                            new_state.dynamic_priority = dynamic_priority;
+                            update_db_with_state(new_state);
+                        }
+                        else{
+                            fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
+                        }
+                    }
+                    else if (strncmp(buf, "set_focus_building", 18) == 0 && USER_LOGGED) {
+                        fprintf(stdout, "Setting build focus of %s\n", UUID_USER_SHORT);
+                        struct game_state previous_state = get_state_from_db();
+                        char dispose[128];
+                        int new_building = -1;
+                        sscanf(buf, "%s %d", dispose, &new_building);
+                        if (send(fd, "ok", 2, 0)) {
+                            fprintf(stdout, "Building focus set to %d\n", new_building);
+                            struct game_state new_state = previous_state;
+                            new_state.focused_building = new_building;
+                            update_db_with_state(new_state);
+                        }
+                        else{
+                            fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
+                        }
+                    }
+                    else if (strncmp(buf, "set_focus_research", 18) == 0 && USER_LOGGED) {
+                        fprintf(stdout, "Setting research focus of %s\n", UUID_USER_SHORT);
+                        struct game_state previous_state = get_state_from_db();
+                        char dispose[128];
+                        int new_research = -1;
+                        sscanf(buf, "%s %d", dispose, &new_research);
+                        if (send(fd, "ok", 2, 0)) {
+                            fprintf(stdout, "Research focus set to %d\n", new_research);
+                            struct game_state new_state = previous_state;
+                            new_state.focused_research = new_research;
+                            update_db_with_state(new_state);
+                        }
+                        else{
+                            fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
+                        }
+                    }
+                    else if (strncmp(buf, "overflow", 8) == 0 && USER_LOGGED) {
+                        fprintf(stdout, "Overflowing %s\n", UUID_USER_SHORT);
+                        struct game_state previous_state = get_state_from_db();
+                        int success = 0;
+                        switch (previous_state.building_overflows) {
+                            case 0:
+                                if (previous_state.building_bits >= 8){
+                                    success = 1;
+                                }
+                                break;
+                            case 1:
+                                if (previous_state.building_bytes >= 1024){
+                                    success = 1;
+                                }
+                                break;
+                            case 2:
+                                if (previous_state.building_kilo_packers >= 1024){
+                                    success = 1;
+                                }
+                                break;
+                            case 3:
+                                if (previous_state.building_mega_packers >= 1024){
+                                    success = 1;
+                                }
+                                break;
+                            case 4:
+                                if (previous_state.building_giga_packers >= 1024){
+                                    success = 1;
+                                }
+                                break;
+                            case 5:
+                                if (previous_state.building_tera_packers >= 1024){
+                                    success = 1;
+                                }
+                                break;
+                            case 6:
+                                if (previous_state.building_peta_packers >= 1024){
+                                    success = 1;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                        if (success){
+                            if (send(fd, "ok", 2, 0)) {
+                                struct game_state new_state = reset_non_persistent_params(previous_state);
+                                new_state.building_overflows += 1;
+                                update_db_with_state(new_state);
+                            }
+                            else{
+                                fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
+                            }
+                        }
+                        else{
+                            send(fd, "failed", 7, 0);
+                            fprintf(stderr, "Failed sanity check\n");
                         }
                     }
                     
