@@ -101,8 +101,8 @@ fun InstanceScreen() {
                         Connector.BottomNavBarVisibility.floatValue = 1f
                     }
                     GlobalScope.run { 
-                        async { 
-                            GameState.requestResolver.invoke()
+                        async {
+                            GameState.currentHandler = launch { GameState.requestResolver.invoke() }
                         }
                     }
                     return@async
@@ -202,7 +202,7 @@ fun InstanceScreen() {
                     }
                     GlobalScope.run {
                         async {
-                            GameState.requestResolver.invoke()
+                            GameState.currentHandler = launch { GameState.requestResolver.invoke() }
                         }
                     }
                 } catch (e: Exception) {

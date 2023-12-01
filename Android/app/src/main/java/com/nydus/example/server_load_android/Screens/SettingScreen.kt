@@ -14,6 +14,7 @@ import com.nydus.example.server_load_android.Connector
 import com.nydus.example.server_load_android.GameState
 import com.nydus.example.server_load_android.ServerRequest
 import com.nydus.example.server_load_android.ServerRequestType
+import kotlinx.coroutines.delay
 import java.time.Instant
 
 @Composable
@@ -27,14 +28,20 @@ fun SettingScreen() {
         modifier = Modifier.fillMaxSize()
     ) {
         Button(onClick = {
+            GameState.requestQueue.clear()
+            GameState.currentHandler?.cancel()
             Connector.Connection?.close()
+            Connector.Connection = null
             Connector.AppPreferences?.edit()?.putString("${Connector.AppPreferences?.getString("last_instance", "none")}", "none")?.apply()
             Connector.NavController?.navigate("Instance")
         }) {
             Text(text = "Reset Progress on instance")
         }
         Button(onClick = { 
+            GameState.requestQueue.clear()
+            GameState.currentHandler?.cancel()
             Connector.Connection?.close()
+            Connector.Connection = null
             Connector.AppPreferences?.edit()?.putString("last_instance", "none")?.apply()
             Connector.NavController?.navigate("Instance")
         }) {

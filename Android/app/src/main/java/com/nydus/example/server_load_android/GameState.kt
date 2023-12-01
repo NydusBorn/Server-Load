@@ -5,12 +5,14 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import java.lang.Exception
 import java.time.Instant
 import java.util.PriorityQueue
+import kotlin.coroutines.createCoroutine
 
 object GameState {
     var BuildingPriority = mutableFloatStateOf(0.33f)
@@ -68,12 +70,15 @@ object GameState {
                 }
             }
             else{
-                requestQueue.clear()
+                if (Connector.Connection == null){
+                    break
+                }
             }
             delay(100)
             requestQueue.add(ServerRequest(ServerRequestType.update, Instant.now(), ::update))
         }
     }
+    var currentHandler: Job? = null
 
     suspend fun update(){
         awaitAll(GlobalScope.run { 
