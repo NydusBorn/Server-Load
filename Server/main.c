@@ -325,10 +325,11 @@ struct game_state update_game_state(struct game_state initial_state, long new_ti
     procured_value *= (floorl(initial_state.building_processes) *
                        powl(3, floorl(initial_state.research_process_mul)));
     procured_value *= powl(2, 5 * initial_state.boost_priority);
-    procured_value *= time_mul;
+    procured_value *= time_mul; //TODO: tweak values for balance
     procured_value *= time_diff;
     long double building_value = procured_value * powl(initial_state.build_priority, 2);
     long double research_value = procured_value * powl(initial_state.research_priority, 2);
+    //TODO: don't increase past limit unless overflown
     switch (initial_state.focused_building) {
         case 0:
             new_state.building_bits = powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1);
@@ -485,6 +486,8 @@ struct game_state reset_non_persistent_params(struct game_state old_state){
     new_state.research_peta_mul = 0;
     new_state.research_exa_add = 0;
     new_state.research_exa_mul = 0;
+    if (new_state.focused_building != -2) new_state.focused_building = -1;
+    if (new_state.focused_research != -2) new_state.focused_research = -1;
     return new_state;
 }
 
