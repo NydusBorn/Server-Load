@@ -140,7 +140,7 @@ fun InstanceScreen() {
             onValueChange = { instance_port = it },
             placeholder = { Text(text = "Instance listen port") })
         Button(onClick = {
-            val lastInstance = "${instance_ip}:${instance_port}".split(":")
+            val lastInstance = "${instance_ip.replace(" ", "")}:${instance_port.replace(" ", "")}".split(":")
             GlobalScope.async {
                 try {
                     val socket = Socket()

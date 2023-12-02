@@ -13,5 +13,17 @@ data class navItem(
 data class Building(
     var label: String,
     val checkNum: Int,
-    val reference: MutableFloatState
+    val reference: MutableFloatState,
+    val overflowRequirement: Int,
+    val valueRequirement: Float,
+    val requirementReference: MutableFloatState
+)
+
+data class Research(
+    var label: String,
+    val checkNum: Int,
+    val reference: MutableFloatState,
+    val overflowRequirement: Int,
+    val valueRequirement: Float,
+    val requirementReference: MutableFloatState
 ) 

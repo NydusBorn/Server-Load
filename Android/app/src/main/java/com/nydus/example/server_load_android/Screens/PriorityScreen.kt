@@ -15,6 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.Dp
 import com.nydus.example.server_load_android.GameState
@@ -123,7 +124,8 @@ fun PriorityScreen() {
             checked = GameState.DynamicPriority.value,
             modifier = Modifier.width(
                 Dp(300f)
-            ),
+            ).alpha(if (GameState.Overflows.intValue >= 2) 1f else 0f),
+            enabled = GameState.Overflows.intValue >= 2,
             onCheckedChange = {
                 GameState.DynamicPriority.value = !GameState.DynamicPriority.value
                 GameState.PriorityRequestInProgress = true
@@ -140,7 +142,8 @@ fun PriorityScreen() {
         }
         FilledIconToggleButton(
             checked = GameState.FocusedBuilding.intValue == -2,
-            modifier = Modifier.width(Dp(300f)),
+            modifier = Modifier.width(Dp(300f)).alpha(if (GameState.Overflows.intValue >= 4) 1f else 0f),
+            enabled = GameState.Overflows.intValue >= 4,
             onCheckedChange = {
                 if (GameState.FocusedBuilding.intValue == -2) {
                     GameState.FocusedBuilding.intValue = 0
@@ -161,7 +164,8 @@ fun PriorityScreen() {
         }
         FilledIconToggleButton(
             checked = GameState.FocusedResearch.intValue == -2,
-            modifier = Modifier.width(Dp(300f)),
+            modifier = Modifier.width(Dp(300f)).alpha(if (GameState.Overflows.intValue >= 6) 1f else 0f),
+            enabled = GameState.Overflows.intValue >= 6,
             onCheckedChange = {
                 if (GameState.FocusedResearch.intValue == -2) {
                     GameState.FocusedResearch.intValue = 0

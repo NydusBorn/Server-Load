@@ -22,48 +22,48 @@ data class ServerRequest(
                 -1
             } else{
                 when (this.type){
-                    ServerRequestType.overflow -> {
-                        when (other.type){
-                            ServerRequestType.overflow -> 0
-                            ServerRequestType.setPriority -> -1
-                            ServerRequestType.setFocusedResearch -> -2
-                            ServerRequestType.setFocusedBuilding -> -3
-                            ServerRequestType.update -> -4
-                        }
-                    }
                     ServerRequestType.setPriority -> {
                         when (other.type){
-                            ServerRequestType.overflow -> 1
                             ServerRequestType.setPriority -> 0
                             ServerRequestType.setFocusedResearch -> -1
                             ServerRequestType.setFocusedBuilding -> -2
-                            ServerRequestType.update -> -3
+                            ServerRequestType.overflow -> -3
+                            ServerRequestType.update -> -4
                         }
                     }
                     ServerRequestType.setFocusedResearch -> {
                         when (other.type){
-                            ServerRequestType.overflow -> 2
                             ServerRequestType.setPriority -> 1
                             ServerRequestType.setFocusedResearch -> 0
                             ServerRequestType.setFocusedBuilding -> -1
-                            ServerRequestType.update -> -2
+                            ServerRequestType.overflow -> -2
+                            ServerRequestType.update -> -3
                         }
                     }
                     ServerRequestType.setFocusedBuilding -> {
                         when (other.type){
-                            ServerRequestType.overflow -> 3
                             ServerRequestType.setPriority -> 2
                             ServerRequestType.setFocusedResearch -> 1
                             ServerRequestType.setFocusedBuilding -> 0
+                            ServerRequestType.overflow -> -1
+                            ServerRequestType.update -> -2
+                        }
+                    }
+                    ServerRequestType.overflow -> {
+                        when (other.type){
+                            ServerRequestType.setPriority -> 3
+                            ServerRequestType.setFocusedResearch -> 2
+                            ServerRequestType.setFocusedBuilding -> 1
+                            ServerRequestType.overflow -> 0
                             ServerRequestType.update -> -1
                         }
                     }
                     ServerRequestType.update -> {
                         when (other.type){
-                            ServerRequestType.overflow -> 4
-                            ServerRequestType.setPriority -> 3
-                            ServerRequestType.setFocusedResearch -> 2
-                            ServerRequestType.setFocusedBuilding -> 1
+                            ServerRequestType.setPriority -> 4
+                            ServerRequestType.setFocusedResearch -> 3
+                            ServerRequestType.setFocusedBuilding -> 2
+                            ServerRequestType.overflow -> 1
                             ServerRequestType.update -> 0
                         }
                     }
