@@ -1,6 +1,8 @@
 ﻿package com.nydus.example.server_load_android.Screens
 
+import android.app.AlertDialog
 import android.graphics.Paint.Align
+import android.support.v4.os.IResultReceiver._Parcel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +35,7 @@ import androidx.compose.ui.modifier.modifierLocalMapOf
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import com.nydus.example.server_load_android.Connector
 import com.nydus.example.server_load_android.Constants
 import com.nydus.example.server_load_android.GameState
 import com.nydus.example.server_load_android.ServerRequest
@@ -98,6 +101,20 @@ fun BuildingScreen() {
                 onClick = { 
                     GameState.OverflowRequestInProgress = true
                     GameState.requestQueue.add(ServerRequest(ServerRequestType.overflow, Instant.now(), GameState::overflow))
+                    AlertDialog.Builder(Connector.NavController!!.context).setTitle("Progress")
+                        .setMessage(
+                            when (GameState.Overflows.intValue){
+                                0 -> "Bits can have a multiplier now, you can start building bytes."
+                                1 -> "Bytes can have a multiplier now, you can start building Kilo packers, you now have access to dynamic priority."
+                                2 -> "Kilo packers can have a multiplier now, you can start building Mega packers."
+                                3 -> "Mega packers can have a multiplier now, you can start building Giga packers, you now have access to dynamic building focus, and you can increase your process count."
+                                4 -> "Giga packers can have a multiplier now, you can start building Tera packers, and your processes can have a multiplier."
+                                5 -> "Tera packers can have a multiplier now, you can start building Peta packers, you now have access to dynamic research focus."
+                                6 -> "Peta packers can have a multiplier now, you can start building Exa packers."
+                                else -> "None"
+                            }
+                        )
+                        .show()
                 }) {
                 Text(text = "Overflow")
             }
