@@ -86,7 +86,7 @@ struct game_state get_state_from_db() {
         char query[1024];
         memset(query, 0, sizeof(query));
         sprintf(query,
-                "select round(extract(epoch from \"Last seen\") * 1000) from \"Users\" where \"Identificator\" = '%s'",
+                "select round(extract(epoch from \"Last seen\")) from \"Users\" where \"Identificator\" = '%s'",
                 UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -115,7 +115,7 @@ struct game_state get_state_from_db() {
         t_value = PQgetvalue(res, 0, 4);
         state.focused_building = atoi(t_value);
         t_value = PQgetvalue(res, 0, 5);
-        state.dynamic_priority = atof(t_value);
+        state.dynamic_priority = atoi(t_value);
         PQclear(res);
         memset(query, 0, sizeof(query));
         sprintf(query,
@@ -216,7 +216,7 @@ void update_db_with_state(struct game_state state) {
         char query[4096];
         memset(query, 0, sizeof(query));
         sprintf(query,
-                "update \"Users\" set \"Last seen\" = to_timestamp(%ld / 1000) where \"Identificator\" = '%s'",
+                "update \"Users\" set \"Last seen\" = to_timestamp(%ld) where \"Identificator\" = '%s'",
                 state.time, UUID_USER);
         res = PQexec(PostGres_conn, query);
         if (PQresultStatus(res) != PGRES_COMMAND_OK) {
@@ -271,7 +271,7 @@ void update_db_with_state(struct game_state state) {
 struct game_state update_game_state(struct game_state initial_state, long new_time) {
     struct game_state new_state = initial_state;
     new_state.time = new_time;
-    long time_diff = new_time - initial_state.time;
+    long time_diff = new_time - initial_state.time - 21500;
     if (time_diff < 0) {
         return initial_state;
     }
@@ -325,43 +325,96 @@ struct game_state update_game_state(struct game_state initial_state, long new_ti
     procured_value *= (floorl(initial_state.building_processes) *
                        powl(3, floorl(initial_state.research_process_mul)));
     procured_value *= powl(2, 5 * initial_state.boost_priority);
-    procured_value *= time_mul; //TODO: tweak values for balance
+    procured_value *= time_mul * 0.1;
     procured_value *= time_diff;
     long double building_value = procured_value * powl(initial_state.build_priority, 2);
     long double research_value = procured_value * powl(initial_state.research_priority, 2);
-    //TODO: don't increase past limit unless overflown
     switch (initial_state.focused_building) {
         case 0:
-            new_state.building_bits = powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1);
+            if (new_state.building_overflows <= 0){
+                new_state.building_bits = fminl(powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1),8*1.0001);
+            } else{
+                new_state.building_bits = powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1);
+            }
             break;
         case 1:
-            new_state.building_bytes =
-                    powl(powl(24 * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24;
+            if (new_state.building_overflows <= 1){
+                new_state.building_bytes = fminl(powl(powl(24 * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24,1024*1.0001);
+            }
+            else{
+                new_state.building_bytes =
+                        powl(powl(24 * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24;
+            }
             break;
         case 2:
-            new_state.building_kilo_packers =
-                    powl(powl(1024 * 3 * initial_state.building_kilo_packers, 1.1) + building_value, 1.0 / 1.1) /
-                    (1024 * 3);
+            if (new_state.building_overflows <= 2){
+                new_state.building_kilo_packers = fminl(
+                        powl(powl(1024 * 3 * initial_state.building_kilo_packers, 1.1) + building_value, 1.0 / 1.1) /
+                        (1024 * 3),
+                        powl(1024 * 3, 1.1) * 1.0001
+                );
+            }
+            else{
+                new_state.building_kilo_packers =
+                        powl(powl(1024 * 3 * initial_state.building_kilo_packers, 1.1) + building_value, 1.0 / 1.1) /
+                        (1024 * 3);
+            }
             break;
         case 3:
-            new_state.building_mega_packers =
-                    powl(powl((powl(1024, 2) * 3) * initial_state.building_mega_packers, 1.1) + building_value,
-                         1.0 / 1.1) / (powl(1024, 2) * 3);
+            if (new_state.building_overflows <= 3){
+                new_state.building_mega_packers = fminl(
+                        powl(powl((powl(1024, 2) * 3) * initial_state.building_mega_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 2) * 3),
+                        powl((powl(1024, 2) * 3), 1.1) * 1.0001
+                );
+            }
+            else{
+                new_state.building_mega_packers =
+                        powl(powl((powl(1024, 2) * 3) * initial_state.building_mega_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 2) * 3);
+            }
             break;
         case 4:
-            new_state.building_giga_packers =
-                    powl(powl((powl(1024, 3) * 3) * initial_state.building_giga_packers, 1.1) + building_value,
-                         1.0 / 1.1) / (powl(1024, 3) * 3);
+            if (new_state.building_overflows <= 4){
+                new_state.building_giga_packers = fminl(
+                        powl(powl((powl(1024, 3) * 3) * initial_state.building_giga_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 3) * 3),
+                        powl((powl(1024, 3) * 3), 1.1) * 1.0001
+                );
+            }
+            else{
+                new_state.building_giga_packers =
+                        powl(powl((powl(1024, 3) * 3) * initial_state.building_giga_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 3) * 3);
+            }
             break;
         case 5:
-            new_state.building_tera_packers =
-                    powl(powl((powl(1024, 4) * 3) * initial_state.building_tera_packers, 1.1) + building_value,
-                         1.0 / 1.1) / (powl(1024, 4) * 3);
+            if (new_state.building_overflows <= 5){
+                new_state.building_tera_packers = fminl(
+                        powl(powl((powl(1024, 4) * 3) * initial_state.building_tera_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 4) * 3),
+                        powl((powl(1024, 4) * 3), 1.1) * 1.0001
+                );
+            }
+            else{
+                new_state.building_tera_packers =
+                        powl(powl((powl(1024, 4) * 3) * initial_state.building_tera_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 4) * 3);
+            }
             break;
         case 6:
-            new_state.building_peta_packers =
-                    powl(powl((powl(1024, 5) * 3) * initial_state.building_peta_packers, 1.1) + building_value,
-                         1.0 / 1.1) / (powl(1024, 5) * 3);
+            if (new_state.building_overflows <= 6){
+                new_state.building_peta_packers = fminl(
+                        powl(powl((powl(1024, 5) * 3) * initial_state.building_peta_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 5) * 3),
+                        powl((powl(1024, 5) * 3), 1.1) * 1.0001
+                );
+            }
+            else{
+                new_state.building_peta_packers =
+                        powl(powl((powl(1024, 5) * 3) * initial_state.building_peta_packers, 1.1) + building_value,
+                             1.0 / 1.1) / (powl(1024, 5) * 3);
+            }
             break;
         case 7:
             new_state.building_exa_packers =
@@ -459,6 +512,120 @@ struct game_state update_game_state(struct game_state initial_state, long new_ti
     return new_state;
 }
 
+long double peek_procured_value(struct game_state initial_state){
+    long time_diff = 1000;
+    long double procured_value = 0;
+    long double time_mul = 0.001;
+    procured_value += powl((floorl(initial_state.building_exa_packers) + floorl(initial_state.research_exa_add)) *
+                           powl(powl(2, 1.0 / 8),
+                                floorl(initial_state.research_exa_mul)),
+                           fminl(1, (initial_state.building_overflows - 8) /
+                                    powl(5, 8) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_peta_packers) + floorl(initial_state.research_peta_add)) *
+                           powl(powl(2, 1.0 / 7),
+                                floorl(initial_state.research_peta_mul)),
+                           fminl(1, (initial_state.building_overflows - 7) /
+                                    powl(5, 7) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_tera_packers) + floorl(initial_state.research_tera_add)) *
+                           powl(powl(2, 1.0 / 6),
+                                floorl(initial_state.research_tera_mul)),
+                           fminl(1, (initial_state.building_overflows - 6) /
+                                    powl(5, 6) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_giga_packers) + floorl(initial_state.research_giga_add)) *
+                           powl(powl(2, 1.0 / 5),
+                                floorl(initial_state.research_giga_mul)),
+                           fminl(1, (initial_state.building_overflows - 4) /
+                                    powl(5, 5) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_mega_packers) + floorl(initial_state.research_mega_add)) *
+                           powl(powl(2, 1.0 / 4),
+                                floorl(initial_state.research_mega_mul)),
+                           fminl(1, (initial_state.building_overflows - 3) /
+                                    powl(5, 4) + 1));
+    procured_value *= 1024;
+    procured_value += powl((floorl(initial_state.building_kilo_packers) + floorl(initial_state.research_kilo_add)) *
+                           powl(powl(2, 1.0 / 3),
+                                floorl(initial_state.research_kilo_mul)),
+                           fminl(1, (initial_state.building_overflows - 2) /
+                                    powl(5, 3) + 1));
+    procured_value *= 1024;
+    procured_value += powl(
+            (floorl(initial_state.building_bytes) + floorl(initial_state.research_bytes_add)) * powl(powl(2, 1.0 / 2),
+                                                                                                     floorl(initial_state.research_bytes_mul)),
+            fminl(1, (initial_state.building_overflows - 1) /
+                     powl(5, 2) + 1));
+    procured_value *= 8;
+    procured_value += powl((floorl(initial_state.building_bits) + floorl(initial_state.research_bits_add)) *
+                           powl(2, floorl(initial_state.research_bits_mul)),
+                           fminl(1, initial_state.building_overflows / 5 + 1));
+    procured_value *= (floorl(initial_state.building_processes) *
+                       powl(3, floorl(initial_state.research_process_mul)));
+    procured_value *= time_mul * 0.1;
+    procured_value *= time_diff;
+    return procured_value;
+}
+
+struct game_state dynamic_update_game_state(struct game_state initial_state, long new_time){
+    struct game_state intermediate = initial_state;
+    if (initial_state.dynamic_priority){
+        double best_boost = initial_state.boost_priority, best_build = initial_state.build_priority, best_research = initial_state.research_priority;
+        long double best_boost_value = peek_procured_value(intermediate);
+        for (int i = 5; i <= 90; i += 5) {
+            for (int j = 5; j <= 95 - i; j += 5) {
+                for (int k = 5; k <= 95 - i - j; k += 5) {
+                    intermediate.boost_priority = (double)i / 100;
+                    intermediate.build_priority = (double)j / 100;
+                    intermediate.research_priority = (double)k / 100;
+                    if (peek_procured_value(intermediate) > best_boost_value){
+                        best_boost_value = peek_procured_value(intermediate);
+                        best_boost = intermediate.boost_priority;
+                        best_build = intermediate.build_priority;
+                        best_research = intermediate.research_priority;
+                    }
+                }
+            }
+        }
+        intermediate.boost_priority = best_boost;
+        intermediate.build_priority = best_build;
+        intermediate.research_priority = best_research;
+    }
+    int dynamic_build_focus = initial_state.focused_building == -2 ? 1 : 0;
+    if (dynamic_build_focus){
+        int best_build_focus = initial_state.focused_building;
+        long double best_projection = 0;
+        for (int i = 0; i <= 8; ++i) {
+            intermediate.focused_building = i;
+            struct game_state inter_state = update_game_state(intermediate, new_time);
+            if (best_projection < peek_procured_value(inter_state)){
+                best_projection = peek_procured_value(inter_state);
+                best_build_focus = i;
+            }
+        }
+        intermediate.focused_building = best_build_focus;
+    }
+    int dynamic_research_focus = initial_state.focused_research == -2 ? 1 : 0;
+    if (dynamic_research_focus){
+        int best_research_focus = initial_state.focused_research;
+        long double best_projection = 0;
+        for (int i = 0; i <= 16; ++i) {
+            intermediate.focused_research = i;
+            struct game_state inter_state = update_game_state(intermediate, new_time);
+            if (best_projection < peek_procured_value(inter_state)){
+                best_projection = peek_procured_value(inter_state);
+                best_research_focus = i;
+            }
+        }
+        intermediate.focused_research = best_research_focus;
+    }
+    struct game_state new_state = update_game_state(intermediate, new_time);
+    new_state.focused_building = dynamic_build_focus ? -2 : new_state.focused_building;
+    new_state.focused_research = dynamic_research_focus ? -2 : new_state.focused_research;
+    return new_state;
+}
+
 struct game_state reset_non_persistent_params(struct game_state old_state){
     struct game_state new_state = old_state;
     new_state.building_bits = 1;
@@ -490,8 +657,6 @@ struct game_state reset_non_persistent_params(struct game_state old_state){
     if (new_state.focused_research != -2) new_state.focused_research = -1;
     return new_state;
 }
-
-//TODO: make dynamic determinators
 
 int main(int argc, char **argv) {
     ssize_t HELLO_SIZE = strlen(HELLO);
@@ -818,7 +983,6 @@ int main(int argc, char **argv) {
                         user_attempt = strdup(buf);
                         strsep(&user_attempt, " ");
                         user_attempt = strsep(&user_attempt, " ");
-                        //TODO: Check for memory leaks with valgrind or something
                         if (strlen(user_attempt) != 128) {
                             fprintf(stderr, "Incorrect login length\n");
                             continue;
@@ -870,8 +1034,8 @@ int main(int argc, char **argv) {
                             else{
                                 struct timeval tv;
                                 gettimeofday(&tv, NULL);
-                                struct game_state new_state = update_game_state(previous_state,
-                                                                                tv.tv_sec * 1000 + tv.tv_usec / 1000);
+                                struct game_state new_state = dynamic_update_game_state(previous_state,
+                                                                                (tv.tv_sec * 1000) + (tv.tv_usec / 1000));
                                 char message[16384];
                                 memset(message, 0, sizeof(message));
                                 sprintf(message,
