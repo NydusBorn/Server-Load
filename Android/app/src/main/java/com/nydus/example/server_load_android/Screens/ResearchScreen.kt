@@ -53,7 +53,7 @@ fun ResearchScreen(){
                     .clip(
                         CircleShape
                     )
-                    .background(if (GameState.Overflows.intValue >= it.overflowRequirement && it.requirementReference.floatValue >= it.valueRequirement) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background).alpha(if (GameState.Overflows.intValue >= it.overflowRequirement && it.requirementReference.floatValue >= it.valueRequirement) 1f else 0f)
+                    .background(if ((GameState.Overflows.intValue >= it.overflowRequirement && it.requirementReference.floatValue >= it.valueRequirement) || (GameState.Overflows.intValue >= it.overflowRequirement && GameState.Overflows.intValue >= 6)) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background).alpha(if ((GameState.Overflows.intValue >= it.overflowRequirement && it.requirementReference.floatValue >= it.valueRequirement) || (GameState.Overflows.intValue >= it.overflowRequirement && GameState.Overflows.intValue >= 6)) 1f else 0f)
             ) {
                 Text(
                     text = "${it.label}: ${it.reference.floatValue}",
