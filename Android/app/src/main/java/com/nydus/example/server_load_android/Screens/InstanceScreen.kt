@@ -16,7 +16,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.Dialog
-import androidx.navigation.NavController
 import com.nydus.example.server_load_android.Connector
 import com.nydus.example.server_load_android.GameState
 import com.nydus.example.server_load_android.MainActivity
