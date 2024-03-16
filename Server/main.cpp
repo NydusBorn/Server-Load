@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include "libpq-fe.h"
 #include "math.h"
+#include "game_model.cpp"
 
 static const char HELLO[] = "Welcome to Server Load instance (version 0.1)\nType 'quit' to close the connection\n";
 static const char ERROR_NO_PORT_GIVEN[] = "You have given no port\n";
@@ -36,611 +37,8 @@ void q_signal_handler(int s) {
     fprintf(stdout, "Closing Server\n");
 }
 
-struct game_state {
-    int focused_research;
-    int focused_building;
-    double build_priority;
-    double boost_priority;
-    double research_priority;
-    int dynamic_priority;
-    long time;
-    //Buildings
-    long double building_bits;
-    long double building_bytes;
-    long double building_kilo_packers;
-    long double building_mega_packers;
-    long double building_giga_packers;
-    long double building_tera_packers;
-    long double building_peta_packers;
-    long double building_exa_packers;
-    long double building_processes;
-    int building_overflows;
-    //Research
-    long double research_bits_add;
-    long double research_bits_mul;
-    long double research_bytes_add;
-    long double research_bytes_mul;
-    long double research_kilo_add;
-    long double research_kilo_mul;
-    long double research_mega_add;
-    long double research_mega_mul;
-    long double research_giga_add;
-    long double research_giga_mul;
-    long double research_tera_add;
-    long double research_tera_mul;
-    long double research_peta_add;
-    long double research_peta_mul;
-    long double research_exa_add;
-    long double research_exa_mul;
-    long double research_process_mul;
-    long double research_endgame;
-};
-
-struct game_state get_state_from_db() {
-    struct game_state state;
-    PGconn *PostGres_conn;
-    PGresult *res;
-    PostGres_conn = PQconnectdb(Conn_info);
-    int success = 0;
-    if (PQstatus(PostGres_conn) == CONNECTION_OK) {
-        char query[1024];
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "select round(extract(epoch from \"Last seen\")) from \"Users\" where \"Identificator\" = '%s'",
-                UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            goto escape;
-        }
-        char *t_value;
-        t_value = PQgetvalue(res, 0, 0);
-        state.time = atol(t_value);
-        PQclear(res);
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "select \"Build_Priority\", \"Boost_Priority\", \"Research_Priority\", \"Focused_Research\", \"Focused_Building\", \"Dynamic_Priority\" from \"User_Priority\" join \"Users\" on \"Users\".\"Pk\" = \"User_Priority\".\"Fk_User\" where \"Identificator\" = '%s'",
-                UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            goto escape;
-        }
-        t_value = PQgetvalue(res, 0, 0);
-        state.build_priority = atof(t_value);
-        t_value = PQgetvalue(res, 0, 1);
-        state.boost_priority = atof(t_value);
-        t_value = PQgetvalue(res, 0, 2);
-        state.research_priority = atof(t_value);
-        t_value = PQgetvalue(res, 0, 3);
-        state.focused_research = atoi(t_value);
-        t_value = PQgetvalue(res, 0, 4);
-        state.focused_building = atoi(t_value);
-        t_value = PQgetvalue(res, 0, 5);
-        state.dynamic_priority = atoi(t_value);
-        PQclear(res);
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "select \"Bits\", \"Bytes\", \"Kilo_Packers\", \"Mega_Packers\", \"Giga_Packers\", \"Tera_Packers\", \"Peta_Packers\", \"Exa_Packers\", \"Processes\", \"Overflows\" from \"User_Buildings\" join \"Users\" on \"Users\".\"Pk\" = \"User_Buildings\".\"Fk_User\" where \"Identificator\" = '%s'",
-                UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            goto escape;
-        }
-        t_value = PQgetvalue(res, 0, 0);
-        state.building_bits = atof(t_value);
-        t_value = PQgetvalue(res, 0, 1);
-        state.building_bytes = atof(t_value);
-        t_value = PQgetvalue(res, 0, 2);
-        state.building_kilo_packers = atof(t_value);
-        t_value = PQgetvalue(res, 0, 3);
-        state.building_mega_packers = atof(t_value);
-        t_value = PQgetvalue(res, 0, 4);
-        state.building_giga_packers = atof(t_value);
-        t_value = PQgetvalue(res, 0, 5);
-        state.building_tera_packers = atof(t_value);
-        t_value = PQgetvalue(res, 0, 6);
-        state.building_peta_packers = atof(t_value);
-        t_value = PQgetvalue(res, 0, 7);
-        state.building_exa_packers = atof(t_value);
-        t_value = PQgetvalue(res, 0, 8);
-        state.building_processes = atof(t_value);
-        t_value = PQgetvalue(res, 0, 9);
-        state.building_overflows = atoi(t_value);
-        PQclear(res);
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "select \"Bits_Add\", \"Bits_Mul\", \"Bytes_Add\", \"Bytes_Mul\", \"Kilo_Add\", \"Kilo_Mul\", \"Mega_Add\", \"Mega_Mul\", \"Giga_Add\", \"Giga_Mul\", \"Tera_Add\", \"Tera_Mul\", \"Peta_Add\", \"Peta_Mul\", \"Exa_Add\", \"Exa_Mul\", \"Process_Multiplier\", \"Game_End\" from \"User_Research\" join \"Users\" on \"Users\".\"Pk\" = \"User_Research\".\"Fk_User\" where \"Identificator\" = '%s'",
-                UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-            goto escape;
-        }
-        t_value = PQgetvalue(res, 0, 0);
-        state.research_bits_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 1);
-        state.research_bits_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 2);
-        state.research_bytes_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 3);
-        state.research_bytes_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 4);
-        state.research_kilo_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 5);
-        state.research_kilo_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 6);
-        state.research_mega_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 7);
-        state.research_mega_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 8);
-        state.research_giga_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 9);
-        state.research_giga_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 10);
-        state.research_tera_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 11);
-        state.research_tera_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 12);
-        state.research_peta_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 13);
-        state.research_peta_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 14);
-        state.research_exa_add = atof(t_value);
-        t_value = PQgetvalue(res, 0, 15);
-        state.research_exa_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 16);
-        state.research_process_mul = atof(t_value);
-        t_value = PQgetvalue(res, 0, 17);
-        state.research_endgame = atof(t_value);
-        PQclear(res);
-        PQfinish(PostGres_conn);
-        success = 1;
-    }
-    escape:
-    if (!success) {
-        fprintf(stderr, "Error code on PQconnectdb (if any): %s\n", PQerrorMessage(PostGres_conn));
-        fprintf(stderr, "Error code on PQresultStatus (if any): %d\n", PQresultStatus(res));
-        PQfinish(PostGres_conn);
-        struct game_state fail_state;
-        fail_state.time = -1;
-        return fail_state;
-    } else {
-        return state;
-    }
-}
-
-void update_db_with_state(struct game_state state) {
-    PGconn *PostGres_conn;
-    PGresult *res;
-    PostGres_conn = PQconnectdb(Conn_info);
-    int success = 0;
-    if (PQstatus(PostGres_conn) == CONNECTION_OK) {
-        char query[4096];
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "update \"Users\" set \"Last seen\" = to_timestamp(%ld) where \"Identificator\" = '%s'",
-                state.time, UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            goto escape;
-        }
-        PQclear(res);
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "update \"User_Priority\" set \"Build_Priority\" = %f, \"Boost_Priority\" = %f, \"Research_Priority\" = %f, \"Focused_Research\" = %d, \"Focused_Building\" = %d, \"Dynamic_Priority\" = %d from \"Users\" where \"Fk_User\" = \"Users\".\"Pk\" and \"Identificator\" = '%s'",
-                state.build_priority, state.boost_priority, state.research_priority, state.focused_research,
-                state.focused_building, state.dynamic_priority, UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            goto escape;
-        }
-        PQclear(res);
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "update \"User_Buildings\" set \"Bits\" = %Lf, \"Bytes\" = %Lf, \"Kilo_Packers\" = %Lf, \"Mega_Packers\" = %Lf, \"Giga_Packers\" = %Lf, \"Tera_Packers\" = %Lf, \"Peta_Packers\" = %Lf, \"Exa_Packers\" = %Lf, \"Processes\" = %Lf, \"Overflows\" = %d from \"Users\" where \"Users\".\"Pk\" = \"Fk_User\" and \"Identificator\" = '%s'",
-                state.building_bits, state.building_bytes, state.building_kilo_packers, state.building_mega_packers,
-                state.building_giga_packers, state.building_tera_packers, state.building_peta_packers,
-                state.building_exa_packers, state.building_processes, state.building_overflows, UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            goto escape;
-        }
-        PQclear(res);
-        memset(query, 0, sizeof(query));
-        sprintf(query,
-                "update \"User_Research\" set \"Bits_Add\" = %Lf, \"Bits_Mul\" = %Lf, \"Bytes_Add\" = %Lf, \"Bytes_Mul\" = %Lf, \"Kilo_Add\" = %Lf, \"Kilo_Mul\" = %Lf, \"Mega_Add\" = %Lf, \"Mega_Mul\" = %Lf, \"Giga_Add\" = %Lf, \"Giga_Mul\" = %Lf, \"Tera_Add\" = %Lf, \"Tera_Mul\" = %Lf, \"Peta_Add\" = %Lf, \"Peta_Mul\" = %Lf, \"Exa_Add\" = %Lf, \"Exa_Mul\" = %Lf, \"Process_Multiplier\" = %Lf, \"Game_End\" = %Lf from \"Users\" where \"Users\".\"Pk\" = \"Fk_User\" and \"Identificator\" = '%s'",
-                state.research_bits_add, state.research_bits_mul, state.research_bytes_add, state.research_bytes_mul,
-                state.research_kilo_add, state.research_kilo_mul, state.research_mega_add, state.research_mega_mul,
-                state.research_giga_add, state.research_giga_mul, state.research_tera_add, state.research_tera_mul,
-                state.research_peta_add, state.research_peta_mul, state.research_exa_add, state.research_exa_mul,
-                state.research_process_mul, state.research_endgame, UUID_USER);
-        res = PQexec(PostGres_conn, query);
-        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-            goto escape;
-        }
-        PQclear(res);
-        PQfinish(PostGres_conn);
-        success = 1;
-    }
-    escape:
-    if (!success) {
-        fprintf(stderr, "Error code on PQconnectdb (if any): %s\n", PQerrorMessage(PostGres_conn));
-        fprintf(stderr, "Error code on PQresultStatus (if any): %d\n", PQresultStatus(res));
-        PQfinish(PostGres_conn);
-    }
-}
-
-long double peek_procured_value(struct game_state initial_state, long time_diff) {
-    long double procured_value = 0;
-    long double time_mul = 0.001;
-    procured_value += powl((floorl(initial_state.building_exa_packers) + floorl(initial_state.research_exa_add)) *
-                           powl(powl(2, 1.0 / 8),
-                                floorl(initial_state.research_exa_mul)),
-                           fminl(1, (initial_state.building_overflows - 8) /
-                                    powl(5, 8) + 1));
-    procured_value *= 1024;
-    procured_value += powl((floorl(initial_state.building_peta_packers) + floorl(initial_state.research_peta_add)) *
-                           powl(powl(2, 1.0 / 7),
-                                floorl(initial_state.research_peta_mul)),
-                           fminl(1, (initial_state.building_overflows - 7) /
-                                    powl(5, 7) + 1));
-    procured_value *= 1024;
-    procured_value += powl((floorl(initial_state.building_tera_packers) + floorl(initial_state.research_tera_add)) *
-                           powl(powl(2, 1.0 / 6),
-                                floorl(initial_state.research_tera_mul)),
-                           fminl(1, (initial_state.building_overflows - 6) /
-                                    powl(5, 6) + 1));
-    procured_value *= 1024;
-    procured_value += powl((floorl(initial_state.building_giga_packers) + floorl(initial_state.research_giga_add)) *
-                           powl(powl(2, 1.0 / 5),
-                                floorl(initial_state.research_giga_mul)),
-                           fminl(1, (initial_state.building_overflows - 4) /
-                                    powl(5, 5) + 1));
-    procured_value *= 1024;
-    procured_value += powl((floorl(initial_state.building_mega_packers) + floorl(initial_state.research_mega_add)) *
-                           powl(powl(2, 1.0 / 4),
-                                floorl(initial_state.research_mega_mul)),
-                           fminl(1, (initial_state.building_overflows - 3) /
-                                    powl(5, 4) + 1));
-    procured_value *= 1024;
-    procured_value += powl((floorl(initial_state.building_kilo_packers) + floorl(initial_state.research_kilo_add)) *
-                           powl(powl(2, 1.0 / 3),
-                                floorl(initial_state.research_kilo_mul)),
-                           fminl(1, (initial_state.building_overflows - 2) /
-                                    powl(5, 3) + 1));
-    procured_value *= 1024;
-    procured_value += powl(
-            (floorl(initial_state.building_bytes) + floorl(initial_state.research_bytes_add)) * powl(powl(2, 1.0 / 2),
-                                                                                                     floorl(initial_state.research_bytes_mul)),
-            fminl(1, (initial_state.building_overflows - 1) /
-                     powl(5, 2) + 1));
-    procured_value *= 8;
-    procured_value += powl((floorl(initial_state.building_bits) + floorl(initial_state.research_bits_add)) *
-                           powl(2, floorl(initial_state.research_bits_mul)),
-                           fminl(1, initial_state.building_overflows / 5 + 1));
-    procured_value *= (floorl(initial_state.building_processes) *
-                       powl(3, floorl(initial_state.research_process_mul)));
-    procured_value *= time_mul * 0.1;
-    procured_value *= time_diff;
-    return procured_value;
-}
-
-struct game_state update_game_state(struct game_state initial_state, long new_time) {
-    struct game_state new_state = initial_state;
-    new_state.time = new_time;
-    long time_diff = new_time - initial_state.time - 21500;
-    if (time_diff < 0) {
-        return initial_state;
-    }
-    long double procured_value = peek_procured_value(initial_state, time_diff);
-    procured_value *= powl(2, 5 * initial_state.boost_priority);
-    long double building_value = procured_value * powl(initial_state.build_priority, 2);
-    long double research_value = procured_value * powl(initial_state.research_priority, 2);
-    switch (initial_state.focused_building) {
-        case 0:
-            if (new_state.building_overflows <= 0){
-                new_state.building_bits = fminl(powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1),8*1.0001);
-            } else{
-                new_state.building_bits = powl(powl(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1);
-            }
-            break;
-        case 1:
-            if (new_state.building_overflows <= 0){
-                break;
-            } 
-            else if (new_state.building_overflows == 1){
-                new_state.building_bytes = fminl(powl(powl(24 * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24,1024*1.0001);
-            }
-            else{
-                new_state.building_bytes =
-                        powl(powl(24 * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24;
-            }
-            break;
-        case 2:
-            if (new_state.building_overflows <= 1){
-                break;
-            }
-            else if (new_state.building_overflows == 2){
-                new_state.building_kilo_packers = fminl(
-                        powl(powl(1024 * 3 * initial_state.building_kilo_packers, 1.1) + building_value, 1.0 / 1.1) /
-                        (1024 * 3),
-                        powl(1024 * 3, 1.1) * 1.0001
-                );
-            }
-            else{
-                new_state.building_kilo_packers =
-                        powl(powl(1024 * 3 * initial_state.building_kilo_packers, 1.1) + building_value, 1.0 / 1.1) /
-                        (1024 * 3);
-            }
-            break;
-        case 3:
-            if (new_state.building_overflows <= 2){
-                break;
-            }
-            else if (new_state.building_overflows == 3){
-                new_state.building_mega_packers = fminl(
-                        powl(powl((powl(1024, 2) * 3) * initial_state.building_mega_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 2) * 3),
-                        powl((powl(1024, 2) * 3), 1.1) * 1.0001
-                );
-            }
-            else{
-                new_state.building_mega_packers =
-                        powl(powl((powl(1024, 2) * 3) * initial_state.building_mega_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 2) * 3);
-            }
-            break;
-        case 4:
-            if (new_state.building_overflows <= 3){
-                break;
-            }
-            else if (new_state.building_overflows == 4){
-                new_state.building_giga_packers = fminl(
-                        powl(powl((powl(1024, 3) * 3) * initial_state.building_giga_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 3) * 3),
-                        powl((powl(1024, 3) * 3), 1.1) * 1.0001
-                );
-            }
-            else{
-                new_state.building_giga_packers =
-                        powl(powl((powl(1024, 3) * 3) * initial_state.building_giga_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 3) * 3);
-            }
-            break;
-        case 5:
-            if (new_state.building_overflows <= 4){
-                break;
-            }
-            else if (new_state.building_overflows == 5){
-                new_state.building_tera_packers = fminl(
-                        powl(powl((powl(1024, 4) * 3) * initial_state.building_tera_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 4) * 3),
-                        powl((powl(1024, 4) * 3), 1.1) * 1.0001
-                );
-            }
-            else{
-                new_state.building_tera_packers =
-                        powl(powl((powl(1024, 4) * 3) * initial_state.building_tera_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 4) * 3);
-            }
-            break;
-        case 6:
-            if (new_state.building_overflows <= 5){
-                break;
-            }
-            else if (new_state.building_overflows == 6){
-                new_state.building_peta_packers = fminl(
-                        powl(powl((powl(1024, 5) * 3) * initial_state.building_peta_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 5) * 3),
-                        powl((powl(1024, 5) * 3), 1.1) * 1.0001
-                );
-            }
-            else{
-                new_state.building_peta_packers =
-                        powl(powl((powl(1024, 5) * 3) * initial_state.building_peta_packers, 1.1) + building_value,
-                             1.0 / 1.1) / (powl(1024, 5) * 3);
-            }
-            break;
-        case 7:
-            if (new_state.building_overflows <= 6){
-                break;
-            }
-            new_state.building_exa_packers =
-                    powl(powl((powl(1024, 6) * 3) * initial_state.building_exa_packers, 1.1) + building_value,
-                         1.0 / 1.1) / (powl(1024, 6) * 3);
-            break;
-        case 8:
-            if (new_state.building_overflows <= 3){
-                break;
-            }
-            new_state.building_processes = powl(powl(initial_state.building_processes, 5) + building_value, 1.0 / 5);
-            break;
-    }
-    switch (initial_state.focused_research) {
-        case 0:
-            new_state.research_bits_add =
-                    powl(powl(100 * initial_state.research_bits_add, 1.5) + research_value, 1.0 / 1.5) / 100;
-            break;
-        case 1:
-            new_state.research_bits_mul =
-                    powl(powl(500 * initial_state.research_bits_mul, 4000) + research_value, 1.0 / 4000) / 500;
-            break;
-        case 2:
-            new_state.research_bytes_add =
-                    powl(powl(24 * 100 * initial_state.research_bytes_add, 1.5) + research_value, 1.0 / 1.5) /
-                    (24 * 100);
-            break;
-        case 3:
-            new_state.research_bytes_mul =
-                    powl(powl(24 * 500 * initial_state.research_bytes_mul, 4000) + research_value, 1.0 / 4000) /
-                    (24 * 500);
-            break;
-        case 4:
-            new_state.research_kilo_add =
-                    powl(powl(1024 * 3 * 100 * initial_state.research_kilo_add, 1.5) + research_value, 1.0 / 1.5) /
-                    (1024 * 3 * 100);
-            break;
-        case 5:
-            new_state.research_kilo_mul =
-                    powl(powl(1024 * 3 * 500 * initial_state.research_kilo_mul, 4000) + research_value, 1.0 / 4000) /
-                    (1024 * 3 * 500);
-            break;
-        case 6:
-            new_state.research_mega_add =
-                    powl(powl((powl(1024, 2) * 3) * 100 * initial_state.research_mega_add, 1.5) + research_value,
-                         1.0 / 1.5) / ((powl(1024, 2) * 3) * 100);
-            break;
-        case 7:
-            new_state.research_mega_mul =
-                    powl(powl((powl(1024, 2) * 3) * 500 * initial_state.research_mega_mul, 4000) + research_value,
-                         1.0 / 4000) / ((powl(1024, 2) * 3) * 500);
-            break;
-        case 8:
-            new_state.research_giga_add =
-                    powl(powl((powl(1024, 3) * 3) * 100 * initial_state.research_giga_add, 1.5) + research_value,
-                         1.0 / 1.5) / ((powl(1024, 3) * 3) * 100);
-            break;
-        case 9:
-            new_state.research_giga_mul =
-                    powl(powl((powl(1024, 3) * 3) * 500 * initial_state.research_giga_mul, 4000) + research_value,
-                         1.0 / 4000) / ((powl(1024, 3) * 3) * 500);
-            break;
-        case 10:
-            new_state.research_tera_add =
-                    powl(powl((powl(1024, 4) * 3) * 100 * initial_state.research_tera_add, 1.5) + research_value,
-                         1.0 / 1.5) / ((powl(1024, 4) * 3) * 100);
-            break;
-        case 11:
-            new_state.research_tera_mul =
-                    powl(powl((powl(1024, 4) * 3) * 500 * initial_state.research_tera_mul, 4000) + research_value,
-                         1.0 / 4000) / ((powl(1024, 4) * 3) * 500);
-            break;
-        case 12:
-            new_state.research_peta_add =
-                    powl(powl((powl(1024, 5) * 3) * 100 * initial_state.research_peta_add, 1.5) + research_value,
-                         1.0 / 1.5) / ((powl(1024, 5) * 3) * 100);
-            break;
-        case 13:
-            new_state.research_peta_mul =
-                    powl(powl((powl(1024, 5) * 3) * 500 * initial_state.research_peta_mul, 4000) + research_value,
-                         1.0 / 4000) / ((powl(1024, 5) * 3) * 500);
-            break;
-        case 14:
-            new_state.research_exa_add =
-                    powl(powl((powl(1024, 6) * 3) * 100 * initial_state.research_exa_add, 1.5) + research_value,
-                         1.0 / 1.5) / ((powl(1024, 6) * 3) * 100);
-            break;
-        case 15:
-            new_state.research_exa_mul =
-                    powl(powl((powl(1024, 6) * 3) * 500 * initial_state.research_exa_mul, 4000) + research_value,
-                         1.0 / 4000) / ((powl(1024, 6) * 3) * 500);
-            break;
-        case 16:
-            new_state.research_process_mul =
-                    powl(powl(1e8 * initial_state.research_process_mul, 8000) + research_value, 1.0 / 8000) / (1e8);
-            break;
-    }
-    return new_state;
-}
-
-struct game_state dynamic_update_game_state(struct game_state initial_state, long new_time){
-    struct game_state intermediate = initial_state;
-    if (initial_state.dynamic_priority){
-        double best_boost = initial_state.boost_priority, best_build = initial_state.build_priority, best_research = initial_state.research_priority;
-        struct game_state inter_state = update_game_state(intermediate, new_time + 180000);
-        long double best_boost_value = peek_procured_value(inter_state, 1000);
-        printf("i = %f, j = %f, k = %f, value = %Lf\n", best_boost, best_build, best_research, best_boost_value);
-        for (int i = 5; i <= 90; i += 5) {
-            for (int j = 5; j <= 95 - i; j += 5) {
-                for (int k = 5; k <= 95 - i - j; k += 5) {
-                    intermediate.boost_priority = (double)i / 100;
-                    intermediate.build_priority = (double)j / 100;
-                    intermediate.research_priority = (double)k / 100;
-                    inter_state = update_game_state(intermediate, new_time + 10000);
-                    long double inter_value = peek_procured_value(inter_state, 1000);
-                    if (inter_value > best_boost_value){
-                        printf("i = %f, j = %f, k = %f, value = %Lf\n", intermediate.boost_priority, intermediate.build_priority, intermediate.research_priority, inter_value);
-                        best_boost_value = inter_value;
-                        best_boost = intermediate.boost_priority;
-                        best_build = intermediate.build_priority;
-                        best_research = intermediate.research_priority;
-                    }
-                }
-            }
-        }
-        intermediate.boost_priority = best_boost;
-        intermediate.build_priority = best_build;
-        intermediate.research_priority = best_research;
-    }
-    int dynamic_build_focus = initial_state.focused_building == -2 ? 1 : 0;
-    if (dynamic_build_focus){
-        int best_build_focus = initial_state.focused_building;
-        long double best_projection = 0;
-        for (int i = 0; i <= 8; ++i) {
-            intermediate.focused_building = i;
-            struct game_state inter_state = update_game_state(intermediate, new_time + 10000);
-            long double inter_value = peek_procured_value(inter_state, 1000);
-            if (best_projection < inter_value){
-                best_projection = inter_value;
-                best_build_focus = i;
-            }
-        }
-        intermediate.focused_building = best_build_focus;
-    }
-    int dynamic_research_focus = initial_state.focused_research == -2 ? 1 : 0;
-    if (dynamic_research_focus){
-        int best_research_focus = initial_state.focused_research;
-        long double best_projection = 0;
-        for (int i = 0; i <= 16; ++i) {
-            intermediate.focused_research = i;
-            struct game_state inter_state = update_game_state(intermediate, new_time + 10000);\
-            long double inter_value = peek_procured_value(inter_state, 1000);
-            if (best_projection < inter_value){
-                best_projection = inter_value;
-                best_research_focus = i;
-            }
-        }
-        intermediate.focused_research = best_research_focus;
-    }
-    struct game_state new_state = update_game_state(intermediate, new_time);
-    new_state.focused_building = dynamic_build_focus ? -2 : new_state.focused_building;
-    new_state.focused_research = dynamic_research_focus ? -2 : new_state.focused_research;
-    return new_state;
-}
-
-struct game_state reset_non_persistent_params(struct game_state old_state){
-    struct game_state new_state = old_state;
-    new_state.building_bits = 1;
-    new_state.building_bytes = 0;
-    new_state.building_kilo_packers = 0;
-    new_state.building_mega_packers = 0;
-    new_state.building_giga_packers = 0;
-    new_state.building_tera_packers = 0;
-    new_state.building_peta_packers = 0;
-    new_state.building_exa_packers = 0;
-    new_state.research_process_mul = 0;
-    new_state.research_bits_add = 0;
-    new_state.research_bits_mul = 0;
-    new_state.research_bytes_add = 0;
-    new_state.research_bytes_mul = 0;
-    new_state.research_kilo_add = 0;
-    new_state.research_kilo_mul = 0;
-    new_state.research_mega_add = 0;
-    new_state.research_mega_mul = 0;
-    new_state.research_giga_add = 0;
-    new_state.research_giga_mul = 0;
-    new_state.research_tera_add = 0;
-    new_state.research_tera_mul = 0;
-    new_state.research_peta_add = 0;
-    new_state.research_peta_mul = 0;
-    new_state.research_exa_add = 0;
-    new_state.research_exa_mul = 0;
-    if (new_state.focused_building != -2) new_state.focused_building = -1;
-    if (new_state.focused_research != -2) new_state.focused_research = -1;
-    return new_state;
-}
-
 int main(int argc, char **argv) {
     ssize_t HELLO_SIZE = strlen(HELLO);
-
     int sockfd;
     struct sockaddr_in addr;
 
@@ -1007,15 +405,18 @@ int main(int argc, char **argv) {
                     else if (strncmp(buf, "update", 6) == 0 && USER_LOGGED) {
                         fprintf(stdout, "Updating user %s\n", UUID_USER_SHORT);
                         {
-                            struct game_state previous_state = get_state_from_db();
-                            if (previous_state.time == -1){
-                                fprintf(stderr, "Couldn't get state\n");
+                            std::string info = std::string(Conn_info);
+                            std::string uuid = std::string(UUID_USER);
+                            auto previous_state = game_model::from_db(info,
+                                                                            uuid);
+                            if (!previous_state.has_value()){
+                                fprintf(stderr, previous_state.error().c_str());
                             }
                             else{
                                 struct timeval tv;
                                 gettimeofday(&tv, NULL);
-                                struct game_state new_state = dynamic_update_game_state(previous_state,
-                                                                                (tv.tv_sec * 1000) + (tv.tv_usec / 1000));
+                                previous_state->dynamic_update_game_state((tv.tv_sec * 1000) + (tv.tv_usec / 1000));
+                                auto new_state = previous_state.value().state;
                                 char message[16384];
                                 memset(message, 0, sizeof(message));
                                 sprintf(message,
@@ -1036,7 +437,8 @@ int main(int argc, char **argv) {
                                         new_state.research_peta_mul, new_state.research_exa_add, new_state.research_exa_mul,
                                         new_state.research_process_mul, new_state.research_endgame);
                                 if (send(fd, message, strlen(message), 0)) {
-                                    update_db_with_state(new_state);
+                                    previous_state->update_db(info,
+                                                            uuid);
                                     fprintf(stdout, "User %s updated\n", UUID_USER_SHORT);
                                 }
                                 else{
@@ -1047,7 +449,8 @@ int main(int argc, char **argv) {
                     }
                     else if (strncmp(buf, "set_priority", 12) == 0 && USER_LOGGED) {
                         fprintf(stdout, "Setting priority of %s\n", UUID_USER_SHORT);
-                        struct game_state previous_state = get_state_from_db();
+                        auto previous_state = game_model::from_db(reinterpret_cast<std::string &>(Conn_info),
+                                                                  reinterpret_cast<std::string &>(UUID_USER));
                         double boost_priority = 1;
                         double research_priority = 1;
                         double build_priority = 1;
@@ -1056,12 +459,12 @@ int main(int argc, char **argv) {
                         sscanf(buf, "%s %lf %lf %lf %d", dispose, &boost_priority, &research_priority, &build_priority, &dynamic_priority);
                         if (send(fd, "ok", 2, 0)) {
                             fprintf(stdout, "Priority set to %lf %lf %lf %d\n", boost_priority, research_priority, build_priority, dynamic_priority);
-                            struct game_state new_state = previous_state;
-                            new_state.boost_priority = boost_priority;
-                            new_state.research_priority = research_priority;
-                            new_state.build_priority = build_priority;
-                            new_state.dynamic_priority = dynamic_priority;
-                            update_db_with_state(new_state);
+                            previous_state->state.boost_priority = boost_priority;
+                            previous_state->state.research_priority = research_priority;
+                            previous_state->state.build_priority = build_priority;
+                            previous_state->state.dynamic_priority = dynamic_priority;
+                            previous_state->update_db(reinterpret_cast<std::string &>(Conn_info),
+                                                      reinterpret_cast<std::string &>(UUID_USER));
                         }
                         else{
                             fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
@@ -1069,15 +472,16 @@ int main(int argc, char **argv) {
                     }
                     else if (strncmp(buf, "set_focus_building", 18) == 0 && USER_LOGGED) {
                         fprintf(stdout, "Setting build focus of %s\n", UUID_USER_SHORT);
-                        struct game_state previous_state = get_state_from_db();
+                        auto previous_state = game_model::from_db(reinterpret_cast<std::string &>(Conn_info),
+                                                                  reinterpret_cast<std::string &>(UUID_USER));
                         char dispose[128];
                         int new_building = -1;
                         sscanf(buf, "%s %d", dispose, &new_building);
                         if (send(fd, "ok", 2, 0)) {
                             fprintf(stdout, "Building focus set to %d\n", new_building);
-                            struct game_state new_state = previous_state;
-                            new_state.focused_building = new_building;
-                            update_db_with_state(new_state);
+                            previous_state->state.focused_building = new_building;
+                            previous_state->update_db(reinterpret_cast<std::string &>(Conn_info),
+                                                      reinterpret_cast<std::string &>(UUID_USER));
                         }
                         else{
                             fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
@@ -1085,15 +489,16 @@ int main(int argc, char **argv) {
                     }
                     else if (strncmp(buf, "set_focus_research", 18) == 0 && USER_LOGGED) {
                         fprintf(stdout, "Setting research focus of %s\n", UUID_USER_SHORT);
-                        struct game_state previous_state = get_state_from_db();
+                        auto previous_state = game_model::from_db(reinterpret_cast<std::string &>(Conn_info),
+                                                                  reinterpret_cast<std::string &>(UUID_USER));
                         char dispose[128];
                         int new_research = -1;
                         sscanf(buf, "%s %d", dispose, &new_research);
                         if (send(fd, "ok", 2, 0)) {
                             fprintf(stdout, "Research focus set to %d\n", new_research);
-                            struct game_state new_state = previous_state;
-                            new_state.focused_research = new_research;
-                            update_db_with_state(new_state);
+                            previous_state->state.focused_research = new_research;
+                            previous_state->update_db(reinterpret_cast<std::string &>(Conn_info),
+                                                      reinterpret_cast<std::string &>(UUID_USER));
                         }
                         else{
                             fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));
@@ -1101,41 +506,42 @@ int main(int argc, char **argv) {
                     }
                     else if (strncmp(buf, "overflow", 8) == 0 && USER_LOGGED) {
                         fprintf(stdout, "Overflowing %s\n", UUID_USER_SHORT);
-                        struct game_state previous_state = get_state_from_db();
+                        auto previous_state = game_model::from_db(reinterpret_cast<std::string &>(Conn_info),
+                                                                  reinterpret_cast<std::string &>(UUID_USER));
                         int success = 0;
-                        switch (previous_state.building_overflows) {
+                        switch (previous_state->state.building_overflows) {
                             case 0:
-                                if (previous_state.building_bits >= 8){
+                                if (previous_state->state.building_bits >= 8){
                                     success = 1;
                                 }
                                 break;
                             case 1:
-                                if (previous_state.building_bytes >= 1024){
+                                if (previous_state->state.building_bytes >= 1024){
                                     success = 1;
                                 }
                                 break;
                             case 2:
-                                if (previous_state.building_kilo_packers >= 1024){
+                                if (previous_state->state.building_kilo_packers >= 1024){
                                     success = 1;
                                 }
                                 break;
                             case 3:
-                                if (previous_state.building_mega_packers >= 1024){
+                                if (previous_state->state.building_mega_packers >= 1024){
                                     success = 1;
                                 }
                                 break;
                             case 4:
-                                if (previous_state.building_giga_packers >= 1024){
+                                if (previous_state->state.building_giga_packers >= 1024){
                                     success = 1;
                                 }
                                 break;
                             case 5:
-                                if (previous_state.building_tera_packers >= 1024){
+                                if (previous_state->state.building_tera_packers >= 1024){
                                     success = 1;
                                 }
                                 break;
                             case 6:
-                                if (previous_state.building_peta_packers >= 1024){
+                                if (previous_state->state.building_peta_packers >= 1024){
                                     success = 1;
                                 }
                                 break;
@@ -1144,9 +550,10 @@ int main(int argc, char **argv) {
                         }
                         if (success){
                             if (send(fd, "ok", 2, 0)) {
-                                struct game_state new_state = reset_non_persistent_params(previous_state);
-                                new_state.building_overflows += 1;
-                                update_db_with_state(new_state);
+                                previous_state->reset_non_persistent_params();
+                                previous_state->state.building_overflows += 1;
+                                previous_state->update_db(reinterpret_cast<std::string &>(Conn_info),
+                                                          reinterpret_cast<std::string &>(UUID_USER));
                             }
                             else{
                                 fprintf(stderr, "Couldn't send message: %s\n", strerror(errno));

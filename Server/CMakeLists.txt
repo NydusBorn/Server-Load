@@ -7,6 +7,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 find_package(PostgreSQL REQUIRED)
 
-add_executable(Server_Load main.cpp)
+add_executable(Server_Load main.cpp
+        game_model.cpp)
 
 target_link_libraries(Server_Load PRIVATE PostgreSQL::PostgreSQL)
