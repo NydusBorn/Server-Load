@@ -48,7 +48,7 @@ public:
     };
     state_model state;
 
-    static std::expected<game_model, std::string> from_db(std::string &db_conn_string, std::string &UUID_USER) {
+    static std::expected<game_model, std::string> from_db(const std::string &db_conn_string, const std::string &UUID_USER) {
         game_model model;
         PGconn *PostGres_conn;
         PGresult *res;
@@ -182,7 +182,7 @@ public:
         return model;
     }
 
-    std::expected<void, std::string> update_db(std::string &db_conn_string, std::string &UUID_USER) {
+    std::expected<void, std::string> update_db(const std::string &db_conn_string, const std::string &UUID_USER) {
         PGconn *PostGres_conn;
         PGresult *res;
         PostGres_conn = PQconnectdb(db_conn_string.c_str());
@@ -255,63 +255,64 @@ public:
         return {};
     }
 
-    static std::float128_t peek_procured_value(state_model state, int64_t time_diff) {
+    static std::float128_t peek_procured_value(const state_model state, const int64_t time_diff) {
         std::float128_t procured_value = 0.;
         std::float128_t time_mul = 0.001;
-        procured_value += powf128((floorf128(state.building_exa_packers) + floorf128(state.research_exa_add)) *
-                                  powf128(powf128(2., 1.0 / 8.),
-                                          floorf128(state.research_exa_mul)),
-                                  fminf128(1., (state.building_overflows - 8.) /
-                                               powf128(5., 8.) + 1.));
+        procured_value += std::pow((std::floor(state.building_exa_packers) + std::floor(state.research_exa_add)) *
+                                   std::pow(std::pow(2., 1.0 / 8.),
+                                            std::floor(state.research_exa_mul)),
+                                   std::min(1., (state.building_overflows - 8.) /
+                                                std::pow(5., 8.) + 1.));
         procured_value *= 1024.;
-        procured_value += powf128((floorf128(state.building_peta_packers) + floorf128(state.research_peta_add)) *
-                                  powf128(powf128(2., 1.0 / 7.),
-                                          floorf128(state.research_peta_mul)),
-                                  fminf128(1., (state.building_overflows - 7.) /
-                                               powf128(5., 7.) + 1.));
+        procured_value += std::pow((std::floor(state.building_peta_packers) + std::floor(state.research_peta_add)) *
+                                   std::pow(std::pow(2., 1.0 / 7.),
+                                            std::floor(state.research_peta_mul)),
+                                   std::min(1., (state.building_overflows - 7.) /
+                                                std::pow(5., 7.) + 1.));
         procured_value *= 1024.;
-        procured_value += powf128((floorf128(state.building_tera_packers) + floorf128(state.research_tera_add)) *
-                                  powf128(powf128(2., 1.0 / 6.),
-                                          floorf128(state.research_tera_mul)),
-                                  fminf128(1., (state.building_overflows - 6.) /
-                                               powf128(5., 6.) + 1.));
+        procured_value += std::pow((std::floor(state.building_tera_packers) + std::floor(state.research_tera_add)) *
+                                   std::pow(std::pow(2., 1.0 / 6.),
+                                            std::floor(state.research_tera_mul)),
+                                   std::min(1., (state.building_overflows - 6.) /
+                                                std::pow(5., 6.) + 1.));
         procured_value *= 1024.;
-        procured_value += powf128((floorf128(state.building_giga_packers) + floorf128(state.research_giga_add)) *
-                                  powf128(powf128(2., 1.0 / 5.),
-                                          floorf128(state.research_giga_mul)),
-                                  fminf128(1., (state.building_overflows - 4.) /
-                                               powf128(5., 5.) + 1.));
+        procured_value += std::pow((std::floor(state.building_giga_packers) + std::floor(state.research_giga_add)) *
+                                   std::pow(std::pow(2., 1.0 / 5.),
+                                            std::floor(state.research_giga_mul)),
+                                   std::min(1., (state.building_overflows - 4.) /
+                                                std::pow(5., 5.) + 1.));
         procured_value *= 1024.;
-        procured_value += powf128((floorf128(state.building_mega_packers) + floorf128(state.research_mega_add)) *
-                                  powf128(powf128(2., 1.0 / 4.),
-                                          floorf128(state.research_mega_mul)),
-                                  fminf128(1., (state.building_overflows - 3.) /
-                                               powf128(5., 4.) + 1.));
+        procured_value += std::pow((std::floor(state.building_mega_packers) + std::floor(state.research_mega_add)) *
+                                   std::pow(std::pow(2., 1.0 / 4.),
+                                            std::floor(state.research_mega_mul)),
+                                   std::min(1., (state.building_overflows - 3.) /
+                                                std::pow(5., 4.) + 1.));
         procured_value *= 1024.;
-        procured_value += powf128((floorf128(state.building_kilo_packers) + floorf128(state.research_kilo_add)) *
-                                  powf128(powf128(2., 1.0 / 3.),
-                                          floorf128(state.research_kilo_mul)),
-                                  fminf128(1., (state.building_overflows - 2.) /
-                                               powf128(5., 3.) + 1.));
+        procured_value += std::pow((std::floor(state.building_kilo_packers) + std::floor(state.research_kilo_add)) *
+                                   std::pow(std::pow(2., 1.0 / 3.),
+                                            std::floor(state.research_kilo_mul)),
+                                   std::min(1., (state.building_overflows - 2.) /
+                                                std::pow(5., 3.) + 1.));
         procured_value *= 1024.;
-        procured_value += powf128(
-                (floorf128(state.building_bytes) + floorf128(state.research_bytes_add)) * powf128(powf128(2., 1.0 / 2.),
-                                                                                                  floorf128(
-                                                                                                          state.research_bytes_mul)),
-                fminf128(1., (state.building_overflows - 1.) /
-                             powf128(5., 2.) + 1.));
+        procured_value += std::pow(
+                (std::floor(state.building_bytes) + std::floor(state.research_bytes_add)) *
+                std::pow(std::pow(2., 1.0 / 2.),
+                         std::floor(
+                                 state.research_bytes_mul)),
+                std::min(1., (state.building_overflows - 1.) /
+                             std::pow(5., 2.) + 1.));
         procured_value *= 8.;
-        procured_value += powf128((floorf128(state.building_bits) + floorf128(state.research_bits_add)) *
-                                  powf128(2., floorf128(state.research_bits_mul)),
-                                  fminf128(1., state.building_overflows / 5. + 1.));
-        procured_value *= (floorf128(state.building_processes) *
-                           powf128(3., floorf128(state.research_process_mul)));
+        procured_value += std::pow((std::floor(state.building_bits) + std::floor(state.research_bits_add)) *
+                                   std::pow(2., std::floor(state.research_bits_mul)),
+                                   std::min(1., state.building_overflows / 5. + 1.));
+        procured_value *= (std::floor(state.building_processes) *
+                           std::pow(3., std::floor(state.research_process_mul)));
         procured_value *= time_mul * 0.1;
         procured_value *= time_diff;
         return procured_value;
     }
 
-    static state_model update_game_state(state_model initial_state, int64_t new_time) {
+    static state_model update_game_state(const state_model initial_state, const int64_t new_time) {
         state_model new_state = initial_state;
         new_state.time = new_time;
         int64_t time_diff = new_time - initial_state.time - 21500;
@@ -319,46 +320,48 @@ public:
             return initial_state;
         }
         std::float128_t procured_value = peek_procured_value(initial_state, time_diff);
-        procured_value *= powf128(2., 5. * initial_state.boost_priority);
-        std::float128_t building_value = procured_value * powf128(initial_state.build_priority, 2.);
-        std::float128_t research_value = procured_value * powf128(initial_state.research_priority, 2.);
+        procured_value *= std::pow(2., 5. * initial_state.boost_priority);
+        std::float128_t building_value = procured_value * std::pow(initial_state.build_priority, 2.);
+        std::float128_t research_value = procured_value * std::pow(initial_state.research_priority, 2.);
         switch (initial_state.focused_building) {
             case 0:
                 if (new_state.building_overflows <= 0) {
-                    new_state.building_bits = fminf128(
-                            powf128(powf128(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1),
-                            8. * 1.0001);
+                    new_state.building_bits = std::min(
+                            std::pow(std::pow(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1),
+                            static_cast<std::float128_t>(8. * 1.0001));
                 } else {
-                    new_state.building_bits = powf128(powf128(initial_state.building_bits, 1.1) + building_value,
-                                                      1.0 / 1.1);
+                    new_state.building_bits = std::pow(std::pow(initial_state.building_bits, 1.1) + building_value,
+                                                       static_cast<std::float128_t>(1.0 / 1.1));
                 }
                 break;
             case 1:
                 if (new_state.building_overflows <= 0) {
                     break;
                 } else if (new_state.building_overflows == 1) {
-                    new_state.building_bytes = fminf128(
-                            powf128(powf128(24. * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24.,
-                            1024. * 1.0001);
+                    new_state.building_bytes = std::min(
+                            std::pow(std::pow(24. * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) /
+                            24.,
+                            static_cast<std::float128_t>(1024. * 1.0001));
                 } else {
                     new_state.building_bytes =
-                            powf128(powf128(24. * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) / 24.;
+                            std::pow(std::pow(24. * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) /
+                            24.;
                 }
                 break;
             case 2:
                 if (new_state.building_overflows <= 1) {
                     break;
                 } else if (new_state.building_overflows == 2) {
-                    new_state.building_kilo_packers = fminf128(
-                            powf128(powf128(1024. * 3. * initial_state.building_kilo_packers, 1.1) + building_value,
-                                    1.0 / 1.1) /
+                    new_state.building_kilo_packers = std::min(
+                            std::pow(std::pow(1024. * 3. * initial_state.building_kilo_packers, 1.1) + building_value,
+                                     1.0 / 1.1) /
                             (1024. * 3.),
-                            powf128(1024. * 3., 1.1) * 1.0001
+                            static_cast<std::float128_t>(std::pow(1024. * 3., 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_kilo_packers =
-                            powf128(powf128(1024. * 3. * initial_state.building_kilo_packers, 1.1) + building_value,
-                                    1.0 / 1.1) /
+                            std::pow(std::pow(1024. * 3. * initial_state.building_kilo_packers, 1.1) + building_value,
+                                     1.0 / 1.1) /
                             (1024. * 3.);
                 }
                 break;
@@ -366,68 +369,68 @@ public:
                 if (new_state.building_overflows <= 2) {
                     break;
                 } else if (new_state.building_overflows == 3) {
-                    new_state.building_mega_packers = fminf128(
-                            powf128(powf128((powf128(1024., 2.) * 3.) * initial_state.building_mega_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 2.) * 3.),
-                            powf128((powf128(1024., 2.) * 3.), 1.1) * 1.0001
+                    new_state.building_mega_packers = std::min(
+                            std::pow(std::pow((std::pow(1024., 2.) * 3.) * initial_state.building_mega_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 2.) * 3.),
+                            static_cast<std::float128_t>(std::pow((std::pow(1024., 2.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_mega_packers =
-                            powf128(powf128((powf128(1024., 2.) * 3.) * initial_state.building_mega_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 2.) * 3.);
+                            std::pow(std::pow((std::pow(1024., 2.) * 3.) * initial_state.building_mega_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 2.) * 3.);
                 }
                 break;
             case 4:
                 if (new_state.building_overflows <= 3) {
                     break;
                 } else if (new_state.building_overflows == 4) {
-                    new_state.building_giga_packers = fminf128(
-                            powf128(powf128((powf128(1024., 3.) * 3.) * initial_state.building_giga_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 3.) * 3.),
-                            powf128((powf128(1024., 3.) * 3.), 1.1) * 1.0001
+                    new_state.building_giga_packers = std::min(
+                            std::pow(std::pow((std::pow(1024., 3.) * 3.) * initial_state.building_giga_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 3.) * 3.),
+                            static_cast<std::float128_t>(std::pow((std::pow(1024., 3.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_giga_packers =
-                            powf128(powf128((powf128(1024., 3.) * 3.) * initial_state.building_giga_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 3.) * 3.);
+                            std::pow(std::pow((std::pow(1024., 3.) * 3.) * initial_state.building_giga_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 3.) * 3.);
                 }
                 break;
             case 5:
                 if (new_state.building_overflows <= 4) {
                     break;
                 } else if (new_state.building_overflows == 5) {
-                    new_state.building_tera_packers = fminf128(
-                            powf128(powf128((powf128(1024., 4.) * 3.) * initial_state.building_tera_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 4.) * 3.),
-                            powf128((powf128(1024., 4.) * 3.), 1.1) * 1.0001
+                    new_state.building_tera_packers = std::min(
+                            std::pow(std::pow((std::pow(1024., 4.) * 3.) * initial_state.building_tera_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 4.) * 3.),
+                            static_cast<std::float128_t>(std::pow((std::pow(1024., 4.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_tera_packers =
-                            powf128(powf128((powf128(1024., 4.) * 3.) * initial_state.building_tera_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 4.) * 3.);
+                            std::pow(std::pow((std::pow(1024., 4.) * 3.) * initial_state.building_tera_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 4.) * 3.);
                 }
                 break;
             case 6:
                 if (new_state.building_overflows <= 5) {
                     break;
                 } else if (new_state.building_overflows == 6) {
-                    new_state.building_peta_packers = fminf128(
-                            powf128(powf128((powf128(1024., 5.) * 3.) * initial_state.building_peta_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 5.) * 3.),
-                            powf128((powf128(1024., 5.) * 3.), 1.1) * 1.0001
+                    new_state.building_peta_packers = std::min(
+                            std::pow(std::pow((std::pow(1024., 5.) * 3.) * initial_state.building_peta_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 5.) * 3.),
+                            static_cast<std::float128_t>(std::pow((std::pow(1024., 5.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_peta_packers =
-                            powf128(powf128((powf128(1024., 5.) * 3.) * initial_state.building_peta_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 5.) * 3.);
+                            std::pow(std::pow((std::pow(1024., 5.) * 3.) * initial_state.building_peta_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 5.) * 3.);
                 }
                 break;
             case 7:
@@ -435,17 +438,17 @@ public:
                     break;
                 } else {
                     new_state.building_exa_packers =
-                            powf128(powf128((powf128(1024., 6.) * 3.) * initial_state.building_exa_packers, 1.1) +
-                                    building_value,
-                                    1.0 / 1.1) / (powf128(1024., 6.) * 3.);
+                            std::pow(std::pow((std::pow(1024., 6.) * 3.) * initial_state.building_exa_packers, 1.1) +
+                                     building_value,
+                                     1.0 / 1.1) / (std::pow(1024., 6.) * 3.);
                 }
                 break;
             case 8:
                 if (new_state.building_overflows <= 3) {
                     break;
                 } else {
-                    new_state.building_processes = powf128(
-                            powf128(initial_state.building_processes, 5.) + building_value,
+                    new_state.building_processes = std::pow(
+                            std::pow(initial_state.building_processes, 5.) + building_value,
                             1.0 / 5.);
                 }
                 break;
@@ -455,102 +458,103 @@ public:
         switch (initial_state.focused_research) {
             case 0:
                 new_state.research_bits_add =
-                        powf128(powf128(100. * initial_state.research_bits_add, 1.5) + research_value, 1.0 / 1.5) /
+                        std::pow(std::pow(100. * initial_state.research_bits_add, 1.5) + research_value, 1.0 / 1.5) /
                         100.;
                 break;
             case 1:
                 new_state.research_bits_mul =
-                        powf128(powf128(500. * initial_state.research_bits_mul, 4000.) + research_value, 1.0 / 4000.) /
+                        std::pow(std::pow(500. * initial_state.research_bits_mul, 4000.) + research_value,
+                                 1.0 / 4000.) /
                         500.;
                 break;
             case 2:
                 new_state.research_bytes_add =
-                        powf128(powf128(24. * 100. * initial_state.research_bytes_add, 1.5) + research_value,
-                                1.0 / 1.5) /
+                        std::pow(std::pow(24. * 100. * initial_state.research_bytes_add, 1.5) + research_value,
+                                 1.0 / 1.5) /
                         (24. * 100.);
                 break;
             case 3:
                 new_state.research_bytes_mul =
-                        powf128(powf128(24. * 500. * initial_state.research_bytes_mul, 4000.) + research_value,
-                                1.0 / 4000.) /
+                        std::pow(std::pow(24. * 500. * initial_state.research_bytes_mul, 4000.) + research_value,
+                                 1.0 / 4000.) /
                         (24. * 500.);
                 break;
             case 4:
                 new_state.research_kilo_add =
-                        powf128(powf128(1024. * 3. * 100. * initial_state.research_kilo_add, 1.5) + research_value,
-                                1.0 / 1.5) /
+                        std::pow(std::pow(1024. * 3. * 100. * initial_state.research_kilo_add, 1.5) + research_value,
+                                 1.0 / 1.5) /
                         (1024. * 3. * 100.);
                 break;
             case 5:
                 new_state.research_kilo_mul =
-                        powf128(powf128(1024. * 3. * 500. * initial_state.research_kilo_mul, 4000.) + research_value,
-                                1.0 / 4000.) /
+                        std::pow(std::pow(1024. * 3. * 500. * initial_state.research_kilo_mul, 4000.) + research_value,
+                                 1.0 / 4000.) /
                         (1024. * 3. * 500.);
                 break;
             case 6:
                 new_state.research_mega_add =
-                        powf128(powf128((powf128(1024., 2.) * 3.) * 100. * initial_state.research_mega_add, 1.5) +
-                                research_value,
-                                1.0 / 1.5) / ((powf128(1024., 2.) * 3.) * 100.);
+                        std::pow(std::pow((std::pow(1024., 2.) * 3.) * 100. * initial_state.research_mega_add, 1.5) +
+                                 research_value,
+                                 1.0 / 1.5) / ((std::pow(1024., 2.) * 3.) * 100.);
                 break;
             case 7:
                 new_state.research_mega_mul =
-                        powf128(powf128((powf128(1024., 2.) * 3.) * 500. * initial_state.research_mega_mul, 4000.) +
-                                research_value,
-                                1.0 / 4000.) / ((powf128(1024., 2.) * 3.) * 500.);
+                        std::pow(std::pow((std::pow(1024., 2.) * 3.) * 500. * initial_state.research_mega_mul, 4000.) +
+                                 research_value,
+                                 1.0 / 4000.) / ((std::pow(1024., 2.) * 3.) * 500.);
                 break;
             case 8:
                 new_state.research_giga_add =
-                        powf128(powf128((powf128(1024., 3.) * 3.) * 100. * initial_state.research_giga_add, 1.5) +
-                                research_value,
-                                1.0 / 1.5) / ((powf128(1024., 3.) * 3.) * 100.);
+                        std::pow(std::pow((std::pow(1024., 3.) * 3.) * 100. * initial_state.research_giga_add, 1.5) +
+                                 research_value,
+                                 1.0 / 1.5) / ((std::pow(1024., 3.) * 3.) * 100.);
                 break;
             case 9:
                 new_state.research_giga_mul =
-                        powf128(powf128((powf128(1024., 3.) * 3.) * 500. * initial_state.research_giga_mul, 4000.) +
-                                research_value,
-                                1.0 / 4000.) / ((powf128(1024., 3.) * 3.) * 500.);
+                        std::pow(std::pow((std::pow(1024., 3.) * 3.) * 500. * initial_state.research_giga_mul, 4000.) +
+                                 research_value,
+                                 1.0 / 4000.) / ((std::pow(1024., 3.) * 3.) * 500.);
                 break;
             case 10:
                 new_state.research_tera_add =
-                        powf128(powf128((powf128(1024., 4.) * 3.) * 100. * initial_state.research_tera_add, 1.5) +
-                                research_value,
-                                1.0 / 1.5) / ((powf128(1024., 4.) * 3.) * 100.);
+                        std::pow(std::pow((std::pow(1024., 4.) * 3.) * 100. * initial_state.research_tera_add, 1.5) +
+                                 research_value,
+                                 1.0 / 1.5) / ((std::pow(1024., 4.) * 3.) * 100.);
                 break;
             case 11:
                 new_state.research_tera_mul =
-                        powf128(powf128((powf128(1024., 4.) * 3.) * 500. * initial_state.research_tera_mul, 4000.) +
-                                research_value,
-                                1.0 / 4000.) / ((powf128(1024., 4.) * 3.) * 500.);
+                        std::pow(std::pow((std::pow(1024., 4.) * 3.) * 500. * initial_state.research_tera_mul, 4000.) +
+                                 research_value,
+                                 1.0 / 4000.) / ((std::pow(1024., 4.) * 3.) * 500.);
                 break;
             case 12:
                 new_state.research_peta_add =
-                        powf128(powf128((powf128(1024., 5.) * 3.) * 100. * initial_state.research_peta_add, 1.5) +
-                                research_value,
-                                1.0 / 1.5) / ((powf128(1024., 5.) * 3.) * 100.);
+                        std::pow(std::pow((std::pow(1024., 5.) * 3.) * 100. * initial_state.research_peta_add, 1.5) +
+                                 research_value,
+                                 1.0 / 1.5) / ((std::pow(1024., 5.) * 3.) * 100.);
                 break;
             case 13:
                 new_state.research_peta_mul =
-                        powf128(powf128((powf128(1024., 5.) * 3.) * 500. * initial_state.research_peta_mul, 4000.) +
-                                research_value,
-                                1.0 / 4000.) / ((powf128(1024., 5.) * 3.) * 500.);
+                        std::pow(std::pow((std::pow(1024., 5.) * 3.) * 500. * initial_state.research_peta_mul, 4000.) +
+                                 research_value,
+                                 1.0 / 4000.) / ((std::pow(1024., 5.) * 3.) * 500.);
                 break;
             case 14:
                 new_state.research_exa_add =
-                        powf128(powf128((powf128(1024., 6.) * 3.) * 100. * initial_state.research_exa_add, 1.5) +
-                                research_value,
-                                1.0 / 1.5) / ((powf128(1024., 6.) * 3.) * 100.);
+                        std::pow(std::pow((std::pow(1024., 6.) * 3.) * 100. * initial_state.research_exa_add, 1.5) +
+                                 research_value,
+                                 1.0 / 1.5) / ((std::pow(1024., 6.) * 3.) * 100.);
                 break;
             case 15:
                 new_state.research_exa_mul =
-                        powf128(powf128((powf128(1024., 6.) * 3.) * 500. * initial_state.research_exa_mul, 4000.) +
-                                research_value,
-                                1.0 / 4000.) / ((powf128(1024., 6.) * 3.) * 500.);
+                        std::pow(std::pow((std::pow(1024., 6.) * 3.) * 500. * initial_state.research_exa_mul, 4000.) +
+                                 research_value,
+                                 1.0 / 4000.) / ((std::pow(1024., 6.) * 3.) * 500.);
                 break;
             case 16:
                 new_state.research_process_mul =
-                        powf128(powf128(1e8 * initial_state.research_process_mul, 8000.) + research_value,
-                                1.0 / 8000.) /
+                        std::pow(std::pow(1e8 * initial_state.research_process_mul, 8000.) + research_value,
+                                 1.0 / 8000.) /
                         (1e8);
                 break;
             default:
@@ -559,7 +563,7 @@ public:
         return new_state;
     }
 
-    void dynamic_update_game_state(long new_time) {
+    void dynamic_update_game_state(const long new_time) {
         state_model intermediate = state;
         if (state.dynamic_priority) {
             std::float16_t best_boost = state.boost_priority;
@@ -567,7 +571,6 @@ public:
             std::float16_t best_research = state.research_priority;
             state_model inter_state = update_game_state(intermediate, new_time + 180000);
             std::float128_t best_boost_value = peek_procured_value(inter_state, 1000);
-            printf("i = %f, j = %f, k = %f, value = %Lf\n", best_boost, best_build, best_research, best_boost_value);
             for (int i = 5; i <= 90; i += 5) {
                 for (int j = 5; j <= 95 - i; j += 5) {
                     for (int k = 5; k <= 95 - i - j; k += 5) {
@@ -577,8 +580,6 @@ public:
                         inter_state = update_game_state(intermediate, new_time + 10000);
                         std::float128_t inter_value = peek_procured_value(inter_state, 1000);
                         if (inter_value > best_boost_value) {
-                            printf("i = %f, j = %f, k = %f, value = %Lf\n", intermediate.boost_priority,
-                                   intermediate.build_priority, intermediate.research_priority, inter_value);
                             best_boost_value = inter_value;
                             best_boost = intermediate.boost_priority;
                             best_build = intermediate.build_priority;
