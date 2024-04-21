@@ -1,4 +1,6 @@
-﻿#include "cerrno"
+﻿#include <thread>
+
+#include "cerrno"
 #include "chrono"
 #include "cmath"
 #include "csignal"
@@ -17,210 +19,75 @@
 #include "sys/types.h"
 #include "sys/wait.h"
 #include "random"
+#include "pthread.h"
+#include "semaphore.h"
 
 static const std::string HELLO = "Welcome to Server Load instance (version 0.2)\nType 'quit' to close the connection\n";
 static bool active = true;
 static bool verbose = false;
 static std::string Conn_info;
 static std::mt19937 generator;
+static sem_t sem_poster;
+static int thread_counter = 0;
+static int active_threads = 0;
+static pthread_mutex_t mutex_sync = PTHREAD_MUTEX_INITIALIZER;
+static int data_post;
+static int sockfd;
 
 void q_signal_handler(int s) {
     (void) s;
     active = false;
-    std::cout << "Closing Server" << std::endl;
+    std::cout << "Closing Server, please wait" << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, nullptr, sizeof(int));
+    shutdown(sockfd, SHUT_RDWR);
+    close(sockfd);
+    sem_destroy(&sem_poster);
+
+    std::cout << "Closed Server appropriately" << std::endl;
 }
 
-void list_ips(const int PORT) { {
-        char hostbuffer[256];
-
-        gethostname(hostbuffer, sizeof(hostbuffer));
-
-        std::cout << std::format("Server running at {}\n", hostbuffer);
-        std::cout << "local ips:" << std::endl;
-    } {
-        struct ifaddrs *ifaddr;
-        int family, s;
-        char host[NI_MAXHOST];
-
-        if (getifaddrs(&ifaddr) == -1) {
-            perror("getifaddrs");
-            std::exit(EXIT_FAILURE);
-        }
-
-        for (struct ifaddrs *ifa = ifaddr; ifa != nullptr;
-             ifa = ifa->ifa_next) {
-            if (ifa->ifa_addr == nullptr)
-                continue;
-
-            family = ifa->ifa_addr->sa_family;
-
-            if (family == AF_INET) {
-                s = getnameinfo(ifa->ifa_addr,
-                                sizeof(struct sockaddr_in),
-                                host, NI_MAXHOST,
-                                nullptr, 0, NI_NUMERICHOST);
-                if (s != 0) {
-                    std::cerr << std::format("getnameinfo() failed: {}\n", gai_strerror(s));
-                    std::exit(EXIT_FAILURE);
-                }
-
-                std::cout << std::format("\tAt {}:{} address: {}:{}\n", ifa->ifa_name, "ipv4", host, PORT);
-            }
-        }
-
-        freeifaddrs(ifaddr);
-    } {
-        FILE *comm = popen("curl https://api.ipify.org", "r");
-        char buf_comm[1024];
-        fgets(buf_comm, 1024, comm);
-        std::cout << std::format("public ip: {}\n", buf_comm);
-        pclose(comm);
-    }
-}
-
-int main(int argc, char **argv) {
-    std::random_device device;
-    generator = std::mt19937(device());
-
-    struct sigaction signal_action = {};
-    signal_action.sa_handler = &q_signal_handler;
-    sigemptyset(&signal_action.sa_mask);
-    signal_action.sa_flags = 0;
-    sigaction(SIGINT, &signal_action, nullptr);
-    std::cout << "parsing arguments" << std::endl;
-    if (argc < 2) {
-        std::cout << "You have given no port" << std::endl;
-    }
-    if (argc < 3) {
-        std::cout << "You have given no database_ip" << std::endl;
-    }
-    if (argc < 4) {
-        std::cout << "You have given no database_port" << std::endl;
-    }
-    if (argc < 5) {
-        std::cout << "You have given no database_user" << std::endl;
-    }
-    if (argc < 6) {
-        std::cout << "You have given no database_password" << std::endl;
-    }
-    if (argc < 7) {
-        std::cout << "You have given no database_name" << std::endl;
-    }
-    if (argc == 7 || argc == 8) {
-        std::cout << "Starting Server" << std::endl;
-        if (argc == 8 && static_cast<const std::string &>(argv[7]) == "-v") {
-            std::cout << "Verbose enabled" << std::endl;
-            verbose = true;
-        }
-    } else {
-        std::cout << "Usage: " << argv[0] <<
-                " port database_ip database_port database_user database_password database_name [-v]" <<
-                std::endl <<
-                "port - which port to listen on " << std::endl <<
-                "database_ip - IP of the server the database is located at" << std::endl <<
-                "database_port - port used by the database connections on the server" << std::endl <<
-                "database_user - username used to connect to the database" << std::endl <<
-                "database_password - password used to connect to the database" << std::endl <<
-                "database_name - name of the database" << std::endl <<
-                "-v - verbose mode" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    int PORT = std::stoi(argv[1]);
+void *thread_worker(void *arg) {
+    int fd;
     PGconn *PostGres_conn;
-    PGresult *PostGres_res; {
-        Conn_info = std::format("hostaddr={} port={} user={} password={} dbname={}", argv[2], argv[3], argv[4], argv[5],
-                                argv[6]);
-        std::cout << "Attempting contact with database server" << std::endl;
-        PostGres_conn = PQconnectdb(Conn_info.c_str());
-        if (PQstatus(PostGres_conn) != CONNECTION_OK) {
-            std::cerr << std::format("Unable to connect to database: {}\n",
-                                     PQerrorMessage(PostGres_conn));
-            PQfinish(PostGres_conn);
-            exit(EXIT_FAILURE);
+    PGresult *PostGres_res;
+    pthread_mutex_lock(&mutex_sync);
+    if (verbose) {
+        std::cout << std::format("Thread {} created\n", thread_counter);
+    }
+    thread_counter++;
+    pthread_mutex_unlock(&mutex_sync);
+
+    while (true) {
+        timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 5;
+        auto wait_res = sem_timedwait(&sem_poster, &ts);
+        if (!active) {
+            break;
         }
-        PQfinish(PostGres_conn);
-        std::cout << "Connection succesful" << std::endl;
-    }
-
-    std::cout << std::format("Opening port {}\n", PORT);
-
-    int sockfd;
-    sockaddr_in addr = {};
-
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(PORT);
-    addr.sin_addr.s_addr = INADDR_ANY;
-    std::cout << "Creating socket" << std::endl;
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        std::cerr << std::format("Unable to create socket: {}\n",
-                                 strerror(errno));
-        std::exit(EXIT_FAILURE);
-    }
-    std::cout << "Socket created" << std::endl;
-    std::cout << "Binding socket" << std::endl;
-    if (bind(sockfd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
-        std::cerr << std::format("Unable to bind socket: {}\n",
-                                 strerror(errno));
-        close(sockfd);
-        std::exit(EXIT_FAILURE);
-    }
-    std::cout << "Socket bound" << std::endl;
-    std::cout << "Starting to listen for connections" << std::endl;
-    if (listen(sockfd, 5) < 0) {
-        std::cerr << std::format("Unable to listen socket: {}\n",
-                                 strerror(errno));
-        close(sockfd);
-        std::exit(EXIT_FAILURE);
-    }
-    std::cout << std::format("Port {} opened for connections\n", PORT);
-    std::cout << "Listing available IP addresses" << std::endl;
-    list_ips(PORT);
-    std::cout << "Listed available IP addresses" << std::endl;
-    std::cout << "Listening for connections" << std::endl;
-
-    bool server_closure = true;
-
-    while (active) {
-        sockaddr *ca = nullptr;
-        socklen_t sz = 0;
-        int fd;
-        pid_t pid;
-        if (verbose) {
-            std::cout << "Waiting for connection" << std::endl;
-        }
-        fd = accept(sockfd, ca, &sz);
-        if (fd < 0) {
-            if (verbose) {
-                std::cerr << std::format("Unable to accept connection: {}\n",
-                                         strerror(errno));
+        pthread_mutex_lock(&mutex_sync);
+        if (wait_res != 0) {
+            if (thread_counter >= 11) {
+                pthread_mutex_unlock(&mutex_sync);
+                break;
             }
+            pthread_mutex_unlock(&mutex_sync);
             continue;
         }
         if (verbose) {
-            std::cout << "Connection accepted" << std::endl;
-            std::cout << "Forking process" << std::endl;
+            std::cout << std::format("Thread got data\n");
         }
-        pid = fork();
-        if (pid < 0) {
-            if (verbose) {
-                std::cerr << std::format("Unable to fork process: {}\n",
-                                         strerror(errno));
-            }
-            continue;
-        }
-        if (verbose && pid > 0) {
-            std::cout << std::format("Process with pid {} created\n", pid);
-        }
+        fd = data_post;
+        active_threads += 1;
+        pthread_mutex_unlock(&mutex_sync);
 
-        if (pid > 0) {
-            close(fd);
-        } else if (send(fd, HELLO.c_str(), HELLO.size(), 0) == HELLO.size()) {
+
+        if (send(fd, HELLO.c_str(), HELLO.size(), 0) == HELLO.size()) {
             bool user_connected = true;
             char buf[255];
             char clientip[20];
             if (verbose) {
-                //TODO: Fix this
                 time_t t = time(nullptr);
                 tm tm = *localtime(&t);
                 sockaddr_in client_addr;
@@ -238,7 +105,6 @@ int main(int argc, char **argv) {
                 memset(buf, 0, sizeof(buf));
                 if (recv(fd, buf, 254, 0) > 0) {
                     if (verbose) {
-                        //TODO: Fix this
                         time_t t = time(nullptr);
                         struct tm tm = *localtime(&t);
                         if (!user_logged) {
@@ -590,14 +456,18 @@ int main(int argc, char **argv) {
             }
 
             if (verbose) {
-                std::cout << std::format("Closing connection from {}\n", clientip);
+                if (user_logged) {
+                    std::cout << std::format("Closed connection from {} at {}\n", UUID_USER_SHORT, clientip);
+
+                }
+                else {
+                    std::cout << std::format("Closed connection from {}\n", clientip);
+                }
             }
 
             setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, nullptr, sizeof(int));
             shutdown(fd, SHUT_RDWR);
             close(fd);
-            active = false;
-            server_closure = false;
         } else {
             if (verbose) {
                 std::cerr << std::format("Unable to send greeting message: {}\n",
@@ -606,15 +476,205 @@ int main(int argc, char **argv) {
 
             close(fd);
         }
+        pthread_mutex_lock(&mutex_sync);
+        thread_counter -= 1;
+        pthread_mutex_unlock(&mutex_sync);
     }
 
+    pthread_mutex_lock(&mutex_sync);
+    thread_counter -= 1;
+    pthread_mutex_unlock(&mutex_sync);
+    if (verbose) {
+        std::cout << "Thread closed" << std::endl;
+    }
 
-    if (server_closure) {
-        setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, nullptr, sizeof(int));
-        shutdown(sockfd, SHUT_RDWR);
+    return nullptr;
+}
+
+void list_ips(const int PORT) {
+    char hostbuffer[256];
+
+    gethostname(hostbuffer, sizeof(hostbuffer));
+
+    std::cout << std::format("Server running at {}\n", hostbuffer);
+    std::cout << "local ips:" << std::endl;
+
+    struct ifaddrs *ifaddr;
+    int family, s;
+    char host[NI_MAXHOST];
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+        return;
+    }
+
+    for (struct ifaddrs *ifa = ifaddr; ifa != nullptr;
+         ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == nullptr)
+            continue;
+
+        family = ifa->ifa_addr->sa_family;
+
+        if (family == AF_INET) {
+            s = getnameinfo(ifa->ifa_addr,
+                            sizeof(struct sockaddr_in),
+                            host, NI_MAXHOST,
+                            nullptr, 0, NI_NUMERICHOST);
+            if (s != 0) {
+                std::cerr << std::format("getnameinfo() failed: {}\n", gai_strerror(s));
+                return;
+            }
+
+            std::cout << std::format("\tAt {}:{} address: {}:{}\n", ifa->ifa_name, "ipv4", host, PORT);
+        }
+    }
+
+    freeifaddrs(ifaddr);
+
+    FILE *comm = popen("curl https://api.ipify.org", "r");
+    char buf_comm[1024];
+    fgets(buf_comm, 1024, comm);
+    std::cout << std::format("public ip: {}\n", buf_comm);
+    pclose(comm);
+}
+
+int main(int argc, char **argv) {
+    std::random_device device;
+    generator = std::mt19937(device());
+
+    struct sigaction signal_action = {};
+    signal_action.sa_handler = &q_signal_handler;
+    sigemptyset(&signal_action.sa_mask);
+    signal_action.sa_flags = 0;
+    sigaction(SIGINT, &signal_action, nullptr);
+    std::cout << "parsing arguments" << std::endl;
+    if (argc < 2) {
+        std::cout << "You have given no port" << std::endl;
+    }
+    if (argc < 3) {
+        std::cout << "You have given no database_ip" << std::endl;
+    }
+    if (argc < 4) {
+        std::cout << "You have given no database_port" << std::endl;
+    }
+    if (argc < 5) {
+        std::cout << "You have given no database_user" << std::endl;
+    }
+    if (argc < 6) {
+        std::cout << "You have given no database_password" << std::endl;
+    }
+    if (argc < 7) {
+        std::cout << "You have given no database_name" << std::endl;
+    }
+    if (argc == 7 || argc == 8) {
+        std::cout << "Starting Server" << std::endl;
+        if (argc == 8 && static_cast<const std::string &>(argv[7]) == "-v") {
+            std::cout << "Verbose enabled" << std::endl;
+            verbose = true;
+        }
+    } else {
+        std::cout << "Usage: " << argv[0] <<
+                " port database_ip database_port database_user database_password database_name [-v]" <<
+                std::endl <<
+                "port - which port to listen on " << std::endl <<
+                "database_ip - IP of the server the database is located at" << std::endl <<
+                "database_port - port used by the database connections on the server" << std::endl <<
+                "database_user - username used to connect to the database" << std::endl <<
+                "database_password - password used to connect to the database" << std::endl <<
+                "database_name - name of the database" << std::endl <<
+                "-v - verbose mode" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    int PORT = std::stoi(argv[1]);
+    PGconn *PostGres_conn;
+    PGresult *PostGres_res; {
+        Conn_info = std::format("hostaddr={} port={} user={} password={} dbname={}", argv[2], argv[3], argv[4], argv[5],
+                                argv[6]);
+        std::cout << "Attempting contact with database server" << std::endl;
+        PostGres_conn = PQconnectdb(Conn_info.c_str());
+        if (PQstatus(PostGres_conn) != CONNECTION_OK) {
+            std::cerr << std::format("Unable to connect to database: {}\n",
+                                     PQerrorMessage(PostGres_conn));
+            PQfinish(PostGres_conn);
+            return EXIT_FAILURE;
+        }
+        PQfinish(PostGres_conn);
+        std::cout << "Connection succesful" << std::endl;
+    }
+
+    std::cout << std::format("Opening port {}\n", PORT);
+
+
+    sockaddr_in addr = {};
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = INADDR_ANY;
+    std::cout << "Creating socket" << std::endl;
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        std::cerr << std::format("Unable to create socket: {}\n",
+                                 strerror(errno));
+        return EXIT_FAILURE;
+    }
+    std::cout << "Socket created" << std::endl;
+    std::cout << "Binding socket" << std::endl;
+    if (bind(sockfd, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) < 0) {
+        std::cerr << std::format("Unable to bind socket: {}\n",
+                                 strerror(errno));
         close(sockfd);
+        return EXIT_FAILURE;
+    }
+    std::cout << "Socket bound" << std::endl;
+    std::cout << "Starting to listen for connections" << std::endl;
+    if (listen(sockfd, 5) < 0) {
+        std::cerr << std::format("Unable to listen socket: {}\n",
+                                 strerror(errno));
+        close(sockfd);
+        return EXIT_FAILURE;
+    }
+    std::cout << std::format("Port {} opened for connections\n", PORT);
+    std::cout << "Listing available IP addresses" << std::endl;
+    list_ips(PORT);
+    std::cout << "Listed available IP addresses" << std::endl;
 
-        std::cout << "Closed Server appropriately" << std::endl;
+    sem_init(&sem_poster, 0, 0);
+    for (int i = 0; i < 10; ++i) {
+        pthread_t thr;
+        pthread_create(&thr, nullptr, &thread_worker, &thr);
+    }
+
+    std::cout << "Listening for connections" << std::endl;
+
+    while (active) {
+        sockaddr *ca = nullptr;
+        socklen_t sz = 0;
+        int fd;
+        pid_t pid;
+        if (verbose) {
+            std::cout << "Waiting for connection" << std::endl;
+        }
+        fd = accept(sockfd, ca, &sz);
+        if (fd < 0) {
+            if (verbose) {
+                std::cerr << std::format("Unable to accept connection: {}\n",
+                                         strerror(errno));
+            }
+            continue;
+        }
+        if (verbose) {
+            std::cout << "Connection accepted" << std::endl;
+        }
+
+        pthread_mutex_lock(&mutex_sync);
+        data_post = fd;
+        if (active_threads >= thread_counter - 2) {
+            pthread_t thr;
+            pthread_create(&thr, nullptr, &thread_worker, &thr);
+        }
+        pthread_mutex_unlock(&mutex_sync);
+
+        sem_post(&sem_poster);
     }
 
     return EXIT_SUCCESS;
