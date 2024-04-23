@@ -199,20 +199,26 @@ void *thread_worker(void *arg) {
                                     } else {
                                         PQclear(PostGres_res);
                                         PQfinish(PostGres_conn);
-                                        std::cerr << std::format("Failed to select users: {}\n",
+                                        if (verbose) {
+                                            std::cerr << std::format("Failed to select users: {}\n",
                                                                  PQresultErrorMessage(PostGres_res));
+                                        }
                                         break;
                                     }
                                 } else {
                                     PQfinish(PostGres_conn);
-                                    std::cerr << std::format("Failed to connect to database: {}\n",
+                                    if (verbose) {
+                                        std::cerr << std::format("Failed to connect to database: {}\n",
                                                              PQerrorMessage(PostGres_conn));
+                                    }
                                     user_connected = false;
                                     break;
                                 }
                             }
                             if (!success) {
-                                std::cerr << "Failed to register user" << std::endl;
+                                if (verbose) {
+                                    std::cerr << "Failed to register user" << std::endl;
+                                }
                             }
                         }
                     } else if (static_cast<const std::string &>(buf).starts_with("login ") && !user_logged) {
@@ -246,15 +252,21 @@ void *thread_worker(void *arg) {
                                             }
                                             user_logged = true;
                                         } else {
-                                            std::cerr << std::format("Couldn't send message: {}\n", strerror(errno));
+                                            if (verbose) {
+                                                std::cerr << std::format("Couldn't send message: {}\n", strerror(errno));
+                                            }
                                         }
                                     } else {
                                         send(fd, "failed login", 12, 0);
-                                        std::cerr << std::format("User {} not found\n", user_attempt);
+                                        if (verbose) {
+                                            std::cerr << std::format("User {} not found\n", user_attempt);
+                                        }
                                     }
                                 } else {
-                                    std::cerr << std::format("Failed to select users: {}\n",
+                                    if (verbose) {
+                                        std::cerr << std::format("Failed to select users: {}\n",
                                                              PQresultErrorMessage(PostGres_res));
+                                    }
                                 }
                                 PQclear(PostGres_res);
                             }
@@ -266,7 +278,7 @@ void *thread_worker(void *arg) {
                         } {
                             auto previous_state = game_model::from_db(Conn_info,
                                                                       UUID_USER);
-                            if (!previous_state.has_value()) {
+                            if (verbose &&!previous_state.has_value()) {
                                 std::cerr << previous_state.error();
                             } else {
                                 timeval tv;
@@ -301,7 +313,9 @@ void *thread_worker(void *arg) {
                                         std::cout << std::format("User {} updated\n", UUID_USER_SHORT);
                                     }
                                 } else {
-                                    std::cerr << std::format("Couldn't send message: {}\n", strerror(errno));
+                                    if (verbose) {
+                                        std::cerr << std::format("Couldn't send message: {}\n", strerror(errno));
+                                    }
                                 }
                             }
                         }
@@ -357,7 +371,9 @@ void *thread_worker(void *arg) {
                                 std::cerr << pos_err.error();
                             }
                         } else {
-                            std::cerr << std::format("Couldn't send message: {}\n", strerror(errno));
+                            if (verbose) {
+                                std::cerr << std::format("Couldn't send message: {}\n", strerror(errno));
+                            }
                         }
                     } else if (strncmp(buf, "set_focus_research", 18) == 0 && user_logged) {
                         if (verbose) {
@@ -521,7 +537,9 @@ void list_ips(const int PORT) {
                             host, NI_MAXHOST,
                             nullptr, 0, NI_NUMERICHOST);
             if (s != 0) {
-                std::cerr << std::format("getnameinfo() failed: {}\n", gai_strerror(s));
+                if (verbose) {
+                    std::cerr << std::format("getnameinfo() failed: {}\n", gai_strerror(s));
+                }
                 return;
             }
 
