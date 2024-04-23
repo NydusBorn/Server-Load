@@ -1,6 +1,5 @@
-#include <iostream>
-#include <libpq-fe.h>
-#include "stdfloat"
+#include "iostream"
+#include "libpq-fe.h"
 #include "expected"
 #include "format"
 #include "cmath"
@@ -10,41 +9,41 @@ public:
     struct state_model {
         int8_t focused_research;
         int8_t focused_building;
-        std::float16_t build_priority;
-        std::float16_t boost_priority;
-        std::float16_t research_priority;
+        float build_priority;
+        float boost_priority;
+        float research_priority;
         int8_t dynamic_priority;
         int64_t time;
         //Buildings
-        std::float128_t building_bits;
-        std::float128_t building_bytes;
-        std::float128_t building_kilo_packers;
-        std::float128_t building_mega_packers;
-        std::float128_t building_giga_packers;
-        std::float128_t building_tera_packers;
-        std::float128_t building_peta_packers;
-        std::float128_t building_exa_packers;
-        std::float128_t building_processes;
+        long double building_bits;
+        long double building_bytes;
+        long double building_kilo_packers;
+        long double building_mega_packers;
+        long double building_giga_packers;
+        long double building_tera_packers;
+        long double building_peta_packers;
+        long double building_exa_packers;
+        long double building_processes;
         int16_t building_overflows;
         //Research
-        std::float128_t research_bits_add;
-        std::float128_t research_bits_mul;
-        std::float128_t research_bytes_add;
-        std::float128_t research_bytes_mul;
-        std::float128_t research_kilo_add;
-        std::float128_t research_kilo_mul;
-        std::float128_t research_mega_add;
-        std::float128_t research_mega_mul;
-        std::float128_t research_giga_add;
-        std::float128_t research_giga_mul;
-        std::float128_t research_tera_add;
-        std::float128_t research_tera_mul;
-        std::float128_t research_peta_add;
-        std::float128_t research_peta_mul;
-        std::float128_t research_exa_add;
-        std::float128_t research_exa_mul;
-        std::float128_t research_process_mul;
-        std::float128_t research_endgame;
+        long double research_bits_add;
+        long double research_bits_mul;
+        long double research_bytes_add;
+        long double research_bytes_mul;
+        long double research_kilo_add;
+        long double research_kilo_mul;
+        long double research_mega_add;
+        long double research_mega_mul;
+        long double research_giga_add;
+        long double research_giga_mul;
+        long double research_tera_add;
+        long double research_tera_mul;
+        long double research_peta_add;
+        long double research_peta_mul;
+        long double research_exa_add;
+        long double research_exa_mul;
+        long double research_process_mul;
+        long double research_endgame;
     };
     state_model state;
 
@@ -255,9 +254,9 @@ public:
         return {};
     }
 
-    static std::float128_t peek_procured_value(const state_model state, const int64_t time_diff) {
-        std::float128_t procured_value = 0.;
-        std::float128_t time_mul = 0.001;
+    static long double peek_procured_value(const state_model state, const int64_t time_diff) {
+        long double procured_value = 0.;
+        long double time_mul = 0.001;
         procured_value += std::pow((std::floor(state.building_exa_packers) + std::floor(state.research_exa_add)) *
                                    std::pow(std::pow(2., 1.0 / 8.),
                                             std::floor(state.research_exa_mul)),
@@ -319,19 +318,19 @@ public:
         if (time_diff < 0) {
             return initial_state;
         }
-        std::float128_t procured_value = peek_procured_value(initial_state, time_diff);
+        long double procured_value = peek_procured_value(initial_state, time_diff);
         procured_value *= std::pow(2., 5. * initial_state.boost_priority);
-        std::float128_t building_value = procured_value * std::pow(initial_state.build_priority, 2.);
-        std::float128_t research_value = procured_value * std::pow(initial_state.research_priority, 2.);
+        long double building_value = procured_value * std::pow(initial_state.build_priority, 2.);
+        long double research_value = procured_value * std::pow(initial_state.research_priority, 2.);
         switch (initial_state.focused_building) {
             case 0:
                 if (new_state.building_overflows <= 0) {
                     new_state.building_bits = std::min(
                             std::pow(std::pow(initial_state.building_bits, 1.1) + building_value, 1.0 / 1.1),
-                            static_cast<std::float128_t>(8. * 1.0001));
+                            static_cast<long double>(8. * 1.0001));
                 } else {
                     new_state.building_bits = std::pow(std::pow(initial_state.building_bits, 1.1) + building_value,
-                                                       static_cast<std::float128_t>(1.0 / 1.1));
+                                                       static_cast<long double>(1.0 / 1.1));
                 }
                 break;
             case 1:
@@ -341,7 +340,7 @@ public:
                     new_state.building_bytes = std::min(
                             std::pow(std::pow(24. * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) /
                             24.,
-                            static_cast<std::float128_t>(1024. * 1.0001));
+                            static_cast<long double>(1024. * 1.0001));
                 } else {
                     new_state.building_bytes =
                             std::pow(std::pow(24. * initial_state.building_bytes, 1.1) + building_value, 1.0 / 1.1) /
@@ -356,7 +355,7 @@ public:
                             std::pow(std::pow(1024. * 3. * initial_state.building_kilo_packers, 1.1) + building_value,
                                      1.0 / 1.1) /
                             (1024. * 3.),
-                            static_cast<std::float128_t>(std::pow(1024. * 3., 1.1) * 1.0001)
+                            static_cast<long double>(std::pow(1024. * 3., 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_kilo_packers =
@@ -373,7 +372,7 @@ public:
                             std::pow(std::pow((std::pow(1024., 2.) * 3.) * initial_state.building_mega_packers, 1.1) +
                                      building_value,
                                      1.0 / 1.1) / (std::pow(1024., 2.) * 3.),
-                            static_cast<std::float128_t>(std::pow((std::pow(1024., 2.) * 3.), 1.1) * 1.0001)
+                            static_cast<long double>(std::pow((std::pow(1024., 2.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_mega_packers =
@@ -390,7 +389,7 @@ public:
                             std::pow(std::pow((std::pow(1024., 3.) * 3.) * initial_state.building_giga_packers, 1.1) +
                                      building_value,
                                      1.0 / 1.1) / (std::pow(1024., 3.) * 3.),
-                            static_cast<std::float128_t>(std::pow((std::pow(1024., 3.) * 3.), 1.1) * 1.0001)
+                            static_cast<long double>(std::pow((std::pow(1024., 3.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_giga_packers =
@@ -407,7 +406,7 @@ public:
                             std::pow(std::pow((std::pow(1024., 4.) * 3.) * initial_state.building_tera_packers, 1.1) +
                                      building_value,
                                      1.0 / 1.1) / (std::pow(1024., 4.) * 3.),
-                            static_cast<std::float128_t>(std::pow((std::pow(1024., 4.) * 3.), 1.1) * 1.0001)
+                            static_cast<long double>(std::pow((std::pow(1024., 4.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_tera_packers =
@@ -424,7 +423,7 @@ public:
                             std::pow(std::pow((std::pow(1024., 5.) * 3.) * initial_state.building_peta_packers, 1.1) +
                                      building_value,
                                      1.0 / 1.1) / (std::pow(1024., 5.) * 3.),
-                            static_cast<std::float128_t>(std::pow((std::pow(1024., 5.) * 3.), 1.1) * 1.0001)
+                            static_cast<long double>(std::pow((std::pow(1024., 5.) * 3.), 1.1) * 1.0001)
                     );
                 } else {
                     new_state.building_peta_packers =
@@ -566,11 +565,11 @@ public:
     void dynamic_update_game_state(const long new_time) {
         state_model intermediate = state;
         if (state.dynamic_priority) {
-            std::float16_t best_boost = state.boost_priority;
-            std::float16_t best_build = state.build_priority;
-            std::float16_t best_research = state.research_priority;
+            float best_boost = state.boost_priority;
+            float best_build = state.build_priority;
+            float best_research = state.research_priority;
             state_model inter_state = update_game_state(intermediate, new_time + 180000);
-            std::float128_t best_boost_value = peek_procured_value(inter_state, 1000);
+            long double best_boost_value = peek_procured_value(inter_state, 1000);
             for (int i = 5; i <= 90; i += 5) {
                 for (int j = 5; j <= 95 - i; j += 5) {
                     for (int k = 5; k <= 95 - i - j; k += 5) {
@@ -578,7 +577,7 @@ public:
                         intermediate.build_priority = j / 100.;
                         intermediate.research_priority = k / 100.;
                         inter_state = update_game_state(intermediate, new_time + 10000);
-                        std::float128_t inter_value = peek_procured_value(inter_state, 1000);
+                        long double inter_value = peek_procured_value(inter_state, 1000);
                         if (inter_value > best_boost_value) {
                             best_boost_value = inter_value;
                             best_boost = intermediate.boost_priority;
@@ -595,11 +594,11 @@ public:
         int dynamic_build_focus = state.focused_building == -2 ? 1 : 0;
         if (dynamic_build_focus) {
             int best_build_focus = state.focused_building;
-            std::float128_t best_projection = 0;
+            long double best_projection = 0;
             for (int i = 0; i <= 8; ++i) {
                 intermediate.focused_building = i;
                 state_model inter_state = update_game_state(intermediate, new_time + 10000);
-                std::float128_t inter_value = peek_procured_value(inter_state, 1000);
+                long double inter_value = peek_procured_value(inter_state, 1000);
                 if (best_projection < inter_value) {
                     best_projection = inter_value;
                     best_build_focus = i;
@@ -610,11 +609,11 @@ public:
         int dynamic_research_focus = state.focused_research == -2 ? 1 : 0;
         if (dynamic_research_focus) {
             int best_research_focus = state.focused_research;
-            std::float128_t best_projection = 0;
+            long double best_projection = 0;
             for (int i = 0; i <= 16; ++i) {
                 intermediate.focused_research = i;
                 state_model inter_state = update_game_state(intermediate, new_time + 10000);\
-            std::float128_t inter_value = peek_procured_value(inter_state, 1000);
+            long double inter_value = peek_procured_value(inter_state, 1000);
                 if (best_projection < inter_value) {
                     best_projection = inter_value;
                     best_research_focus = i;
