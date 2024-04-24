@@ -491,6 +491,9 @@ void *thread_worker(void *arg) {
                             }
                         }
                     }
+                    else {
+                        send(fd, "unknown", 7, 0);
+                    }
                 } else {
                     user_connected = false;
                 }
