@@ -68,7 +68,7 @@ void *thread_worker(void *arg) {
         }
         pthread_mutex_lock(&mutex_sync);
         if (wait_res != 0) {
-            if (thread_counter >= 11) {
+            if (thread_counter - active_threads > 5) {
                 pthread_mutex_unlock(&mutex_sync);
                 break;
             }
@@ -657,7 +657,7 @@ int main(int argc, char **argv) {
     std::cout << "Listed available IP addresses" << std::endl;
 
     sem_init(&sem_poster, 0, 0);
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 5; ++i) {
         pthread_t thr;
         pthread_create(&thr, nullptr, &thread_worker, &thr);
     }
@@ -686,7 +686,7 @@ int main(int argc, char **argv) {
 
         pthread_mutex_lock(&mutex_sync);
         data_post = fd;
-        if (active_threads >= thread_counter - 2) {
+        if (thread_counter - active_threads > 5) {
             pthread_t thr;
             pthread_create(&thr, nullptr, &thread_worker, &thr);
         }
