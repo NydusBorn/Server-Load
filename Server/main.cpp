@@ -210,7 +210,6 @@ void *thread_worker(void *arg) {
                                         std::cerr << std::format("Failed to connect to database: {}\n",
                                                              PQerrorMessage(PostGres_conn));
                                     }
-                                    user_connected = false;
                                     break;
                                 }
                             }
