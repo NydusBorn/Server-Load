@@ -51,10 +51,11 @@ void *thread_worker(void *arg) {
     int fd;
     PGconn *PostGres_conn;
     PGresult *PostGres_res;
-    pthread_mutex_lock(&mutex_sync);
+
     if (verbose) {
         std::cout << std::format("Thread {} created\n", thread_counter);
     }
+    pthread_mutex_lock(&mutex_sync);
     thread_counter++;
     pthread_mutex_unlock(&mutex_sync);
 
@@ -66,22 +67,20 @@ void *thread_worker(void *arg) {
         if (!active) {
             break;
         }
-        pthread_mutex_lock(&mutex_sync);
+
         if (wait_res != 0) {
             if (thread_counter - active_threads > 5) {
-                pthread_mutex_unlock(&mutex_sync);
                 break;
             }
-            pthread_mutex_unlock(&mutex_sync);
             continue;
         }
         if (verbose) {
             std::cout << std::format("Thread got data\n");
         }
         fd = data_post;
+        pthread_mutex_lock(&mutex_sync);
         active_threads += 1;
         pthread_mutex_unlock(&mutex_sync);
-
 
         if (send(fd, HELLO.c_str(), HELLO.size(), 0) == HELLO.size()) {
             bool user_connected = true;
@@ -278,8 +277,10 @@ void *thread_worker(void *arg) {
                         } {
                             auto previous_state = game_model::from_db(Conn_info,
                                                                       UUID_USER);
-                            if (verbose &&!previous_state.has_value()) {
-                                std::cerr << previous_state.error();
+                            if (!previous_state.has_value()) {
+                                if (verbose) {
+                                    std::cerr << previous_state.error();
+                                }
                             } else {
                                 timeval tv;
                                 gettimeofday(&tv, nullptr);
@@ -325,6 +326,12 @@ void *thread_worker(void *arg) {
                         }
                         auto previous_state = game_model::from_db(Conn_info,
                                                                   UUID_USER);
+                        if (!previous_state.has_value()) {
+                            if (verbose) {
+                                std::cerr << previous_state.error();
+                            }
+                            continue;
+                        }
                         double boost_priority = 1;
                         double research_priority = 1;
                         double build_priority = 1;
@@ -357,6 +364,12 @@ void *thread_worker(void *arg) {
                         }
                         auto previous_state = game_model::from_db(Conn_info,
                                                                   UUID_USER);
+                        if (!previous_state.has_value()) {
+                            if (verbose) {
+                                std::cerr << previous_state.error();
+                            }
+                            continue;
+                        }
                         char dispose[128];
                         int new_building = -1;
                         sscanf(buf, "%s %d", dispose, &new_building);
@@ -381,6 +394,12 @@ void *thread_worker(void *arg) {
                         }
                         auto previous_state = game_model::from_db(Conn_info,
                                                                   UUID_USER);
+                        if (!previous_state.has_value()) {
+                            if (verbose) {
+                                std::cerr << previous_state.error();
+                            }
+                            continue;
+                        }
                         char dispose[128];
                         int new_research = -1;
                         sscanf(buf, "%s %d", dispose, &new_research);
@@ -405,6 +424,12 @@ void *thread_worker(void *arg) {
                         }
                         auto previous_state = game_model::from_db(Conn_info,
                                                                   UUID_USER);
+                        if (!previous_state.has_value()) {
+                            if (verbose) {
+                                std::cerr << previous_state.error();
+                            }
+                            continue;
+                        }
                         int success = 0;
                         switch (previous_state->state.building_overflows) {
                             case 0:
@@ -493,7 +518,7 @@ void *thread_worker(void *arg) {
             close(fd);
         }
         pthread_mutex_lock(&mutex_sync);
-        thread_counter -= 1;
+        active_threads -= 1;
         pthread_mutex_unlock(&mutex_sync);
     }
 
@@ -565,6 +590,9 @@ int main(int argc, char **argv) {
     sigemptyset(&signal_action.sa_mask);
     signal_action.sa_flags = 0;
     sigaction(SIGINT, &signal_action, nullptr);
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGABRT, SIG_IGN);
+
     std::cout << "parsing arguments" << std::endl;
     if (argc < 2) {
         std::cout << "You have given no port" << std::endl;
@@ -684,13 +712,11 @@ int main(int argc, char **argv) {
             std::cout << "Connection accepted" << std::endl;
         }
 
-        pthread_mutex_lock(&mutex_sync);
         data_post = fd;
-        if (thread_counter - active_threads > 5) {
+        if (thread_counter - active_threads < 5) {
             pthread_t thr;
             pthread_create(&thr, nullptr, &thread_worker, &thr);
         }
-        pthread_mutex_unlock(&mutex_sync);
 
         sem_post(&sem_poster);
     }
